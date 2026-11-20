@@ -1,0 +1,34 @@
+{
+  "defaultTheme": "noite",
+  "themes": {
+    "noite": {
+      "label": "Noite",
+      "background": "#0a1014", "land": "#0e161b", "residential": "#111b21", "park": "#0f2a21", "wood": "#0c211a",
+      "water": "#0a2635", "roadMinor": "#33454f", "roadMinorCasing": "#080d10", "roadService": "#222f37",
+      "roadTrunk": "#e2b45a", "roadTrunkCasing": "#3a2c10", "track": "#3b4b3f", "path": "#53616b",
+      "building": "#1c2830", "text": "#cbd8de", "halo": "#0a1014",
+      "sky": "#081426", "horizon": "#1a3a4d", "fog": "#0d1b24",
+      "ambient": "#9bb8d6", "ambientIntensity": 1.25, "sun": "#b8cfff", "sunIntensity": 1.1,
+      "glow": 1, "ui": "dark"
+    },
+    "dia": {
+      "label": "Dia",
+      "background": "#eceee6", "land": "#e8ebe1", "residential": "#e1e5d8", "park": "#cfe4c4", "wood": "#bfdab2",
+      "water": "#b4d6e6", "roadMinor": "#ffffff", "roadMinorCasing": "#c9cdc0", "roadService": "#f6f7f1",
+      "roadTrunk": "#f2c46a", "roadTrunkCasing": "#c79a3c", "track": "#c4c9b0", "path": "#b9b9a6",
+      "building": "#d9d6ca", "text": "#2a3a41", "halo": "#f3f4ee",
+      "sky": "#8fc3ea", "horizon": "#e9f1f2", "fog": "#e4ece9",
+      "ambient": "#ffffff", "ambientIntensity": 1.55, "sun": "#fff1d6", "sunIntensity": 1.9,
+      "glow": 0.0, "ui": "light"
+    }
+  },
+  "home": { "center": [-61.50497, 7.30127], "zoom": 16.9, "pitch": 60, "bearing": 17 },
+  "bounds": [[-61.55, 7.265], [-61.455, 7.34]],
+  "minZoom": 12.5,
+  "maxZoom": 19.6,
+  "pitch3d": 62,
+  "placeColors": {
+    "square": "#6ee7a8", "government": "#e8b34b", "health": "#ff7a85", "transport": "#7cc4ff", "market": "#ffb066",
+    "lodging": "#b79cff", "education": "#8ee0ff", "worship": "#f5e6b3", "food": "#ff9d6e", "bank": "#9fb4c7", "other": "#c0cdd6"
+  }
+}

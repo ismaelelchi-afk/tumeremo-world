@@ -1,0 +1,63 @@
+# Dependencias
+node_modules/
+jspm_packages/
+
+# Salidas de compilación
+dist/
+build/
+out/
+*.tsbuildinfo
+.vite/
+
+# Capturas y archivos temporales
+.shots/
+tmp/
+temp/
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# Registros
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Secretos y credenciales
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+id_rsa
+id_dsa
+id_ecdsa
+id_ed25519
+credentials.json
+*credential*
+*secret*
+
+# Entornos y configuraciones locales
+.venv/
+venv/
+.env.local
+.env.*.local
+.vscode/
+.idea/
+*.sublime-workspace
+
+# Sistema operativo
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
