@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { computeFocusView } from '../../core/camera';
+import { prefersReducedMotion } from '../../engine/WorldEngine';
 import { documentStore, useDocumentState } from '../../core/store';
-import type { CameraView, WorldSelection } from '../../core/types';
+import type { CameraView, EntityRef, WorldDocument, WorldSelection } from '../../core/types';
 import { useI18n } from '../../i18n';
 import { Icon, LogoMark } from '../../ui/Icon';
 import { LanguageSwitch } from '../../ui/LanguageSwitch';
@@ -9,17 +11,28 @@ import { VISUAL, useEngine } from '../../ui/useEngine';
 import { AboutPanel } from './AboutPanel';
 import { ExplorePanel } from './ExplorePanel';
 import { InfoPanel } from './InfoPanel';
+import { useWorldCamera } from './useWorldCamera';
 
 const THEME_KEY = 'tumeremo-world:theme';
 
 interface Props {
-  /** Quando presente, o WORLD é exibido como pré-visualização dentro do STUDIO. */
-  preview?: { onExit: () => void; initialView?: CameraView };
+  /**
+   * Pré-visualização do STUDIO: documento e visibilidade são decididos pelo editor.
+   * O WORLD público não passa esta prop e continua a mostrar solo publicado.
+   */
+  preview?: {
+    doc: WorldDocument;
+    showUnpublished: boolean;
+    onExit: () => void;
+    initialView?: CameraView;
+    orbit?: EntityRef;
+  };
 }
 
 export function WorldApp({ preview }: Props) {
   const state = useDocumentState();
-  const doc = state.doc;
+  const doc = preview?.doc ?? state.doc;
+  const showUnpublished = preview?.showUnpublished ?? false;
   const toast = useToast();
   const { t } = useI18n();
 
@@ -52,10 +65,42 @@ export function WorldApp({ preview }: Props) {
     preview?.initialView,
   );
 
+  // Órbita: el mismo sistema de WORLD, reutilizado por la vista previa del STUDIO.
+  const { startOrbit, stopOrbit, orbiting } = useWorldCamera(
+    engine,
+    doc,
+    window.matchMedia('(min-width: 1024px)').matches,
+  );
+  const orbitRef = preview?.orbit;
+  const orbitStarted = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!engine || !ready || !orbitRef) return;
+    const key = `${orbitRef.kind}:${orbitRef.id}`;
+    if (orbitStarted.current === key) return;
+    orbitStarted.current = key;
+    // Arranca después de `setData` y de la selección inicial: la geometría ya está actualizada.
+    const id = window.setTimeout(() => startOrbit(orbitRef), 0);
+    return () => window.clearTimeout(id);
+  }, [engine, ready, orbitRef?.kind, orbitRef?.id, doc, startOrbit]);
+
+  // Cambiar de estructura en la vista previa detiene la órbita y devuelve el control manual.
+  useEffect(() => {
+    if (sel) stopOrbit();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sel?.kind, sel?.id, stopOrbit]);
+
+  useEffect(() => () => stopOrbit(), [stopOrbit]);
+
+  const exitPreview = () => {
+    stopOrbit();
+    preview?.onExit();
+  };
+
   // dados → motor
   useEffect(() => {
-    engine?.setData(doc, { showUnpublished: false });
-  }, [engine, doc]);
+    engine?.setData(doc, { showUnpublished });
+  }, [engine, doc, showUnpublished]);
 
   // voo de abertura (apenas no WORLD público)
   useEffect(() => {
@@ -73,10 +118,17 @@ export function WorldApp({ preview }: Props) {
     [doc],
   );
 
-  // um ponto oculto/removido no STUDIO deixa de ser selecionável no WORLD
+  // Uma entidad oculta, borrada o no publicada deja de ser seleccionable.
   useEffect(() => {
-    if (sel?.kind === 'place' && !doc.places?.some((p) => p.id === sel.id && p.visible !== false)) setSel(null);
-  }, [doc, sel]);
+    if (!sel) return;
+    if (sel.kind === 'place' && !doc.places?.some((p) => p.id === sel.id && p.visible !== false)) setSel(null);
+    else if (sel.kind === 'building' && !doc.buildings.some((b) => b.id === sel.id && b.visible !== false)) setSel(null);
+    else if (sel.kind === 'business') {
+      const biz = doc.businesses.find((b) => b.id === sel.id);
+      const hiddenBuilding = biz?.buildingId && !doc.buildings.some((b) => b.id === biz.buildingId && b.visible !== false);
+      if (!biz || (!showUnpublished && !biz.published) || hiddenBuilding) setSel(null);
+    }
+  }, [doc, sel, showUnpublished]);
 
   // destaque no mapa + enquadramento
   useEffect(() => {
@@ -99,19 +151,19 @@ export function WorldApp({ preview }: Props) {
     (s: WorldSelection, fly = true) => {
       setSel(s);
       setExplore(false);
-      const p = selectionPoint(s);
-      if (engine && p && fly) {
-        const bottom = isMobile() ? Math.round(window.innerHeight * 0.3) : 0;
-        engine.map.flyTo({
-          center: [p.lng, p.lat],
-          zoom: Math.max(engine.map.getZoom(), 17.6),
-          padding: { top: 0, left: 0, right: 0, bottom },
-          duration: 1400,
-          essential: true,
+      if (engine && fly) {
+        const view = computeFocusView({
+          doc,
+          ref: s,
+          current: { zoom: engine.map.getZoom(), pitch: engine.map.getPitch(), bearing: engine.map.getBearing() },
+          paddingBottom: isMobile() ? Math.round(window.innerHeight * 0.3) : 0,
         });
+        if (!view) return;
+        if (prefersReducedMotion()) engine.map.jumpTo(view);
+        else engine.map.flyTo({ ...view, essential: true });
       }
     },
-    [engine, selectionPoint],
+    [doc, engine, selectionPoint],
   );
 
   // toques no mapa também ajustam o enquadramento no celular
@@ -148,7 +200,6 @@ export function WorldApp({ preview }: Props) {
 
   const palette = VISUAL.themes[theme];
   const is3d = view.pitch > 12;
-  const usingDraft = state.source === 'draft' && state.hasDraft;
   const studioHref = useMemo(() => '#/studio', []);
 
   return (
@@ -159,7 +210,7 @@ export function WorldApp({ preview }: Props) {
       <header className="pointer-events-none fixed left-0 top-0 z-20 flex w-full items-start justify-between p-3" style={{ paddingTop: 'calc(var(--safe-t) + 12px)' }}>
         <div className="pointer-events-auto flex flex-col items-start gap-2">
           {preview ? (
-            <button className="glass flex items-center gap-2 rounded-full py-2 pl-3 pr-4 font-semibold" onClick={preview.onExit}>
+            <button className="glass flex items-center gap-2 rounded-full py-2 pl-3 pr-4 font-semibold" onClick={exitPreview}>
               <Icon name="back" size={18} /> {t('world.backToStudio')}
             </button>
           ) : (
@@ -176,12 +227,6 @@ export function WorldApp({ preview }: Props) {
           {preview && (
             <span className="chip glass">{t('world.previewChip')}</span>
           )}
-          {!preview && usingDraft && (
-            <button className="chip glass" onClick={() => documentStore.setSource('original')} title={t('world.draftTitle')}>
-              <span className="h-2 w-2 rounded-full" style={{ background: 'var(--accent)' }} />
-              {t('world.draftChip')}
-            </button>
-          )}
           {!preview && state.source === 'original' && state.hasDraft && (
             <button className="chip glass" onClick={() => documentStore.setSource('draft')}>
               {t('world.originalChip')}
@@ -191,6 +236,17 @@ export function WorldApp({ preview }: Props) {
 
         <div className="pointer-events-auto flex flex-col items-end gap-2">
           <LanguageSwitch />
+          {orbitRef && (
+            <button
+              className="glass flex items-center gap-2 rounded-full py-2 pl-3 pr-4 font-semibold"
+              onClick={() => startOrbit(orbitRef)}
+              aria-label={t(orbiting ? 'city.stopOrbit' : 'city.orbit')}
+              title={t(orbiting ? 'city.stopOrbit' : 'city.orbit')}
+            >
+              <Icon name={orbiting ? 'close' : 'rotate'} size={18} />
+              <span className="hidden sm:inline">{t(orbiting ? 'city.stopOrbit' : 'city.orbit')}</span>
+            </button>
+          )}
           <button
             className="glass pointer-events-auto grid h-[52px] w-[52px] place-items-center rounded-full"
             onClick={() => engine?.resetNorth()}
@@ -242,7 +298,7 @@ export function WorldApp({ preview }: Props) {
         </button>
       )}
 
-      {sel && <InfoPanel selection={sel} doc={doc} onSelect={select} onClose={() => setSel(null)} onCopy={copy} />}
+      {sel && <InfoPanel selection={sel} doc={doc} showUnpublished={showUnpublished} onSelect={select} onClose={() => setSel(null)} onCopy={copy} />}
       {explore && (
         <ExplorePanel
           doc={doc}

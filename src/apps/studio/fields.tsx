@@ -50,7 +50,7 @@ export function Toggle({ label, on, onChange }: { label: string; on: boolean; on
       role="switch"
       aria-checked={on}
       onClick={() => onChange(!on)}
-      className="flex min-h-[40px] w-full items-center justify-between rounded-xl px-3"
+      className="flex min-h-11 w-full items-center justify-between rounded-xl px-3"
       style={{ background: 'var(--panel-2)', border: '1px solid var(--border)' }}
     >
       <span className="text-[13.5px] font-semibold">{label}</span>

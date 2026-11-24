@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { AnimationOverrides, WorldAnimationConfig } from '../../core/animation';
 import { normalizeDegrees } from '../../core/geo';
 import { exportDocumentJson, importDocumentJson } from '../../data/customModels';
 import { documentStore, useDocumentState } from '../../core/store';
@@ -6,17 +7,23 @@ import type { Business, CameraView, EntityRef, ModelDef, ModelParams, WorldDocum
 import { getModel } from '../../data/models';
 import type { EditTool } from '../../engine/WorldEngine';
 import { localizedText, useI18n, type TranslationKey } from '../../i18n';
+import { ConfirmDialog } from '../../ui/ConfirmDialog';
 import { Icon, LogoMark, type IconName } from '../../ui/Icon';
 import { LanguageSwitch } from '../../ui/LanguageSwitch';
 import { Toast, useToast } from '../../ui/Toast';
 import { VISUAL, useEngine } from '../../ui/useEngine';
 import { WorldApp } from '../world/WorldApp';
+import { AnimationPanel } from './AnimationPanel';
 import { BusinessTab } from './BusinessTab';
 import {
   addEntity,
+  addPlace,
   createBusiness,
   createEntity,
+  createPlace,
+  duplicateBusiness,
   duplicateEntity,
+  duplicatePlace,
   findEntity,
   findPlace,
   patchBusiness,
@@ -24,6 +31,7 @@ import {
   patchPlace,
   removeBusiness,
   removeEntity,
+  removePlace,
 } from './docOps';
 import { LibraryTab } from './LibraryTab';
 import { PlacesTab } from './PlacesTab';
@@ -32,29 +40,57 @@ import { SceneTab } from './SceneTab';
 
 type Tab = 'library' | 'scene' | 'points' | 'business' | 'props';
 
+type PendingConfirm =
+  | { kind: 'entity'; ref: EntityRef }
+  | { kind: 'place'; id: string }
+  | { kind: 'restore' }
+  | null;
+
 const STUDIO_VIEW: CameraView = { ...VISUAL.home, zoom: 17.4, pitch: 45 };
 
-/** STUDIO = editor + pré-visualização. A prévia monta o WORLD real com o mesmo documento. */
+/**
+ * STUDIO = editor + pré-visualização. O editor permanece montado (o motor é pausado)
+ * para que aba, seleção, ferramenta e tema voltem exatamente como estavam.
+ */
 export function StudioApp() {
-  const [previewing, setPreviewing] = useState(false);
-  const viewRef = useRef<CameraView>(STUDIO_VIEW);
-  if (previewing) {
-    return <WorldApp preview={{ onExit: () => setPreviewing(false), initialView: viewRef.current }} />;
-  }
+  const [preview, setPreview] = useState<{ doc: WorldDocument; orbit?: EntityRef } | null>(null);
+  const [initialView, setInitialView] = useState<CameraView>(STUDIO_VIEW);
+
   return (
-    <StudioEditor
-      initialView={viewRef.current}
-      onPreview={(v) => {
-        viewRef.current = v;
-        setPreviewing(true);
-      }}
-    />
+    <>
+      <StudioEditor
+        active={!preview}
+        initialView={initialView}
+        onView={setInitialView}
+        onPreview={(v) => {
+          setInitialView(v);
+          setPreview({ doc: documentStore.getState().doc });
+        }}
+        onPreviewOrbit={(v, ref) => {
+          setInitialView(v);
+          setPreview({ doc: documentStore.getState().doc, orbit: ref });
+        }}
+      />
+      {preview && (
+        <div className="fixed inset-0 z-[60]">
+          <WorldApp
+            preview={{
+              doc: preview.doc,
+              showUnpublished: true,
+              onExit: () => setPreview(null),
+              initialView,
+              orbit: preview.orbit,
+            }}
+          />
+        </div>
+      )}
+    </>
   );
 }
 
 const TABS: Array<[Tab, TranslationKey, IconName]> = [
   ['library', 'studio.library', 'layers'],
-  ['scene', 'studio.scene', 'list'],
+  ['scene', 'studio.buildings', 'list'],
   ['points', 'studio.points', 'pin'],
   ['business', 'studio.business', 'store'],
   ['props', 'studio.props', 'sliders'],
@@ -67,7 +103,19 @@ const TOOLS: Array<[EditTool, TranslationKey, IconName, TranslationKey]> = [
   ['scale', 'studio.tool.scale', 'scale', 'studio.tool.scaleHint'],
 ];
 
-function StudioEditor({ initialView, onPreview }: { initialView: CameraView; onPreview: (v: CameraView) => void }) {
+function StudioEditor({
+  active,
+  initialView,
+  onView,
+  onPreview,
+  onPreviewOrbit,
+}: {
+  active: boolean;
+  initialView: CameraView;
+  onView: (v: CameraView) => void;
+  onPreview: (v: CameraView) => void;
+  onPreviewOrbit: (v: CameraView, ref: EntityRef) => void;
+}) {
   const state = useDocumentState();
   const doc = state.doc;
   const toast = useToast();
@@ -82,6 +130,8 @@ function StudioEditor({ initialView, onPreview }: { initialView: CameraView; onP
   const [bearing, setBearing] = useState(0);
   const [pitch, setPitch] = useState(initialView.pitch);
   const [menu, setMenu] = useState(false);
+  const [animOpen, setAnimOpen] = useState(false);
+  const [pending, setPending] = useState<PendingConfirm>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -92,6 +142,25 @@ function StudioEditor({ initialView, onPreview }: { initialView: CameraView; onP
   }, []);
 
   const update = useCallback((fn: (d: WorldDocument) => WorldDocument, key?: string) => documentStore.update(fn, key), []);
+
+  const showToast = toast.show;
+  useEffect(() => {
+    if (!state.saveError) return;
+    showToast(t(state.saveError), 6000);
+    const id = window.setTimeout(() => documentStore.clearSaveError(), 6000);
+    return () => window.clearTimeout(id);
+  }, [state.saveError, t, showToast]);
+
+  /** Descarga el borrador original sin tocarlo, para recuperación manual. */
+  const downloadRecovery = (raw: string) => {
+    const blob = new Blob([raw], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `tumeremo-borrador-recuperado-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
 
   const { ref, engine, ready } = useEngine(
     'studio',
@@ -116,13 +185,24 @@ function StudioEditor({ initialView, onPreview }: { initialView: CameraView; onP
       onView: (v) => {
         setBearing(v.bearing);
         setPitch(v.pitch);
+        onView({ center: [v.center.lng, v.center.lat], zoom: v.zoom, pitch: v.pitch, bearing: v.bearing });
       },
       onReady: () => {},
       onMapError: () => toast.show(t('world.mapError'), 6000),
-      onTransform: (r, patch) => update((d) => patchEntity(d, r, { placement: patch }), `drag:${r.id}`),
+      onTransform: (r, patch) => {
+        if (r.kind === 'place') {
+          const id = r.id;
+          const position = patch.position;
+          if (position) update((d) => patchPlace(d, id, { position }), `drag:plc:${id}`);
+          return;
+        }
+        const ref = r;
+        update((d) => patchEntity(d, ref, { placement: patch }), `drag:${r.id}`);
+      },
       onGestureEnd: () => documentStore.breakCoalesce(),
     },
     initialView,
+    { enabled: active },
   );
 
   useEffect(() => {
@@ -149,6 +229,12 @@ function StudioEditor({ initialView, onPreview }: { initialView: CameraView; onP
     }
   }, []);
 
+  const clearSelections = useCallback(() => {
+    setSel(null);
+    setPlaceSel(null);
+    setEditingBiz(null);
+  }, []);
+
   const entity = sel ? findEntity(doc, sel) : undefined;
 
   /* ---------------------------------- ações ---------------------------------- */
@@ -165,20 +251,79 @@ function StudioEditor({ initialView, onPreview }: { initialView: CameraView; onP
     toast.show(t('studio.added', { name: localizedText(m, 'name', lang) }));
   };
 
-  const deleteSelected = useCallback(() => {
-    if (!sel) return;
-    update((d) => removeEntity(d, sel));
-    setSel(null);
-    toast.show(t('studio.removed'));
-  }, [sel, update, toast, t]);
+  // Las tablas ya confirman inline; estas dos funciones solo ejecutan la baja aprobada.
+  const deleteEntityNow = useCallback(
+    (r: EntityRef) => {
+      if (!findEntity(documentStore.getState().doc, r)) return;
+      update((d) => removeEntity(d, r));
+      setSel((current) => (current?.kind === r.kind && current.id === r.id ? null : current));
+      showToast(t('studio.removed'));
+    },
+    [showToast, t, update],
+  );
 
+  const deletePlaceNow = useCallback(
+    (id: string) => {
+      if (!findPlace(documentStore.getState().doc, id)) return;
+      update((d) => removePlace(d, id));
+      setPlaceSel((current) => (current === id ? null : current));
+      showToast(t('studio.removed'));
+    },
+    [showToast, t, update],
+  );
+
+  const deleteSelected = useCallback(() => {
+    if (sel) setPending({ kind: 'entity', ref: sel });
+    else if (placeSel) setPending({ kind: 'place', id: placeSel });
+  }, [sel, placeSel]);
+
+  const duplicatePlaceById = useCallback(
+    (id: string) => {
+      const r = duplicatePlace(documentStore.getState().doc, id);
+      if (!r) return;
+      update(() => r.doc);
+      const copy = findPlace(r.doc, r.id);
+      setSel(null);
+      setEditingBiz(null);
+      setPlaceSel(r.id);
+      setTab('points');
+      setSheetOpen(true);
+      showToast(t('studio.added', { name: copy ? localizedText(copy, 'name', lang) : id }));
+    },
+    [lang, showToast, t, update],
+  );
+
+  const duplicateBusinessById = useCallback(
+    (id: string) => {
+      const r = duplicateBusiness(documentStore.getState().doc, id);
+      if (!r) return;
+      update(() => r.doc);
+      const copy = r.doc.businesses.find((b) => b.id === r.id);
+      setSel(null);
+      setPlaceSel(null);
+      setEditingBiz(r.id);
+      setTab('business');
+      setSheetOpen(true);
+      showToast(t('studio.added', { name: copy ? localizedText(copy, 'name', lang) : id }));
+    },
+    [lang, showToast, t, update],
+  );
+
+  /** Ctrl+D replicated lo que esté activo: entidad 3D, punto o comercio en edición. */
   const duplicateSelected = useCallback(() => {
-    if (!sel) return;
-    const r = duplicateEntity(documentStore.getState().doc, sel);
-    if (!r) return;
-    update(() => r.doc);
-    setSel(r.ref);
-  }, [sel, update]);
+    if (sel) {
+      const r = duplicateEntity(documentStore.getState().doc, sel);
+      if (!r) return;
+      update(() => r.doc);
+      setSel(r.ref);
+      return;
+    }
+    if (placeSel) {
+      duplicatePlaceById(placeSel);
+      return;
+    }
+    if (editingBiz) duplicateBusinessById(editingBiz);
+  }, [sel, placeSel, editingBiz, update, duplicatePlaceById, duplicateBusinessById]);
 
   const alignSelected = () => {
     if (!sel || !engine) return;
@@ -210,6 +355,18 @@ function StudioEditor({ initialView, onPreview }: { initialView: CameraView; onP
     setEditingBiz(b.id);
     setTab('business');
     setSheetOpen(true);
+    showToast(t('studio.added', { name: localizedText(b, 'name', lang) }));
+  };
+
+  const createPoint = () => {
+    if (!engine) return;
+    const place = createPlace(engine.getCenter());
+    update((d) => addPlace(d, place));
+    setSel(null);
+    setPlaceSel(place.id);
+    setTab('points');
+    setSheetOpen(true);
+    toast.show(t('studio.added', { name: localizedText(place, 'name', lang) }));
   };
 
   const showBuilding = (id: string) => {
@@ -226,12 +383,13 @@ function StudioEditor({ initialView, onPreview }: { initialView: CameraView; onP
       const json = await exportDocumentJson(documentStore.getState().doc);
       const blob = new Blob([json], { type: 'application/json' });
       const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
       const d = new Date();
       const p = (n: number) => String(n).padStart(2, '0');
       a.download = `tumeremo-world-${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}.json`;
+      const url = URL.createObjectURL(blob);
+      a.href = url;
       a.click();
-      URL.revokeObjectURL(a.href);
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch {
       toast.show(t('studio.exportError'), 4500);
     }
@@ -244,10 +402,11 @@ function StudioEditor({ initialView, onPreview }: { initialView: CameraView; onP
       const result = await importDocumentJson(await file.text());
       if (!result.doc) throw new Error('inválido');
       documentStore.replace(result.doc);
-      setSel(null);
+      clearSelections();
       const extras: string[] = [];
       if (result.imported) extras.push(t('studio.importModels', { n: result.imported }));
       if (result.reused) extras.push(t('studio.importReused', { n: result.reused }));
+      if (result.report?.repaired) extras.push(t('studio.importRepaired', { n: result.report.repaired }));
       if (result.skipped) extras.push(t('studio.importSkipped', { n: result.skipped }));
       toast.show(
         t('studio.imported', {
@@ -266,62 +425,102 @@ function StudioEditor({ initialView, onPreview }: { initialView: CameraView; onP
     setMenu(false);
   };
 
-  const restoreOriginal = async () => {
-    setMenu(false);
-    if (!window.confirm(t('studio.restoreConfirm'))) return;
+  const restoreOriginalNow = async () => {
     await documentStore.discardDraft();
-    setSel(null);
-    toast.show(t('studio.restored'));
+    clearSelections();
+    showToast(t('studio.restored'));
   };
+
+  const restoreOriginal = () => {
+    setMenu(false);
+    setPending({ kind: 'restore' });
+  };
+
+  /** Guardado explícito: el mensaje depende del resultado real de `saveNow()`. */
+  const save = useCallback(async () => {
+    const ok = await documentStore.saveNow();
+    if (ok) showToast(t('studio.toastSaved'));
+    else showToast(t('studio.saveError'), 6000);
+  }, [showToast, t]);
 
   /* ---------------------------------- teclado ---------------------------------- */
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (pending) return;
       const el = e.target as HTMLElement;
       if (el.closest('input, textarea, select')) return;
       const mod = e.ctrlKey || e.metaKey;
-      if (mod && e.key.toLowerCase() === 'z') {
+      const key = e.key.toLowerCase();
+      if (mod && key === 's') {
+        e.preventDefault();
+        void save();
+      } else if (mod && key === 'z') {
         e.preventDefault();
         if (e.shiftKey) documentStore.redo();
         else documentStore.undo();
-      } else if (mod && e.key.toLowerCase() === 'y') {
+      } else if (mod && key === 'y') {
         e.preventDefault();
         documentStore.redo();
-      } else if (mod && e.key.toLowerCase() === 'd') {
+      } else if (mod && key === 'd') {
         e.preventDefault();
         duplicateSelected();
       } else if (e.key === 'Delete' || e.key === 'Backspace') {
-        if (sel) {
+        if (sel || placeSel) {
           e.preventDefault();
           deleteSelected();
         }
-      } else if (e.key === 'Escape') setSel(null);
-      else if (!mod) {
-        const k = e.key.toLowerCase();
-        if (k === 'v') setTool('select');
-        else if (k === 'm') setTool('move');
-        else if (k === 'r') setTool('rotate');
-        else if (k === 'e') setTool('scale');
+      } else if (e.key === 'Escape') {
+        clearSelections();
+      } else if (!mod) {
+        if (key === 'v') setTool('select');
+        else if (key === 'm') setTool('move');
+        else if (key === 'r') setTool('rotate');
+        else if (key === 'e') setTool('scale');
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [sel, deleteSelected, duplicateSelected]);
+  }, [pending, sel, placeSel, clearSelections, deleteSelected, duplicateSelected, save]);
 
   /* ---------------------------------- render ---------------------------------- */
 
   const ui = VISUAL.themes[theme].ui;
   const is3d = pitch > 12;
-  const worldUrl = location.pathname.replace(/studio\.html$/, 'index.html');
+  const worldUrl = useMemo(() => {
+    const url = new URL(location.href);
+    url.hash = '';
+    if (/studio(\.html)?\/?$/.test(url.pathname)) url.pathname = url.pathname.replace(/studio(\.html)?\/?$/, 'index.html');
+    return url.pathname + url.search;
+  }, []);
   const saveLabel = state.saving
     ? t('studio.saving')
-    : state.savedAt
-      ? t('studio.saved', { time: formatTime(state.savedAt) })
-      : state.hasDraft
-        ? t('studio.draftLoaded')
-        : t('studio.originalNoEdits');
+    : state.dirty || state.saveError
+      ? t('studio.unsavedChanges')
+      : state.savedAt
+        ? t('studio.saved', { time: formatTime(state.savedAt) })
+        : state.hasDraft
+          ? t('studio.draftLoaded')
+          : t('studio.originalNoEdits');
   const hintKey = TOOLS.find((x) => x[0] === tool)![3];
+
+  const pendingDialog = (() => {
+    if (!pending) return null;
+    if (pending.kind === 'restore') return { label: t('studio.menuRestore'), message: t('studio.restoreConfirm') };
+    if (pending.kind === 'place') {
+      const place = findPlace(doc, pending.id);
+      return {
+        label: t('common.delete'),
+        message: t('points.deleteConfirm', { name: place ? localizedText(place, 'name', lang) : pending.id }),
+      };
+    }
+    const target = findEntity(doc, pending.ref);
+    const confirmKey: TranslationKey = pending.ref.kind === 'building' ? 'scene.deleteConfirm' : 'scene.deleteObjectConfirm';
+    return {
+      label: t('common.delete'),
+      message: t(confirmKey, { name: target ? localizedText(target, 'name', lang) : pending.ref.id }),
+    };
+  })();
 
   const onTab = (t: Tab) => {
     if (t === tab) setSheetOpen((o) => !o);
@@ -350,38 +549,81 @@ function StudioEditor({ initialView, onPreview }: { initialView: CameraView; onP
           </span>
         </div>
         <LanguageSwitch compact />
-        <button className="fab !h-10 !w-10" onClick={() => documentStore.undo()} disabled={!state.past.length} style={{ opacity: state.past.length ? 1 : 0.35 }} aria-label={t('common.undo')} title={t('common.undoTitle')}>
+        <button className="fab !h-11 !w-11" onClick={() => setAnimOpen(true)} aria-label={t('anim.open')} title={t('anim.open')}>
+          <Icon name="sliders" size={19} />
+        </button>
+        <button className="fab !h-11 !w-11" onClick={() => documentStore.undo()} disabled={!state.past.length} style={{ opacity: state.past.length ? 1 : 0.35 }} aria-label={t('common.undo')} title={t('common.undoTitle')}>
           <Icon name="undo" size={19} />
         </button>
-        <button className="fab !h-10 !w-10" onClick={() => documentStore.redo()} disabled={!state.future.length} style={{ opacity: state.future.length ? 1 : 0.35 }} aria-label={t('common.redo')} title={t('common.redoTitle')}>
+        <button className="fab !h-11 !w-11" onClick={() => documentStore.redo()} disabled={!state.future.length} style={{ opacity: state.future.length ? 1 : 0.35 }} aria-label={t('common.redo')} title={t('common.redoTitle')}>
           <Icon name="redo" size={19} />
         </button>
-        <button className="btn btn-primary !min-h-[40px] !rounded-full" onClick={() => engine && onPreview(engine.getView())}>
+        <button className="btn btn-primary !min-h-11 !rounded-full" onClick={() => engine && onPreview(engine.getView())}>
           <Icon name="play" size={16} /> <span className="hidden sm:inline">{t('studio.preview')}</span>
           <span className="sm:hidden">{t('studio.previewShort')}</span>
         </button>
         <div className="relative">
-          <button className="fab !h-10 !w-10" onClick={() => setMenu((m) => !m)} aria-label={t('studio.menuAria')} aria-expanded={menu}>
+          <button className="fab !h-11 !w-11" onClick={() => setMenu((m) => !m)} aria-label={t('studio.menuAria')} aria-expanded={menu}>
             <Icon name="menu" size={20} />
           </button>
           {menu && (
             <>
               <button className="fixed inset-0 z-40 cursor-default" onClick={() => setMenu(false)} aria-label={t('studio.menuClose')} />
-              <div className="glass rise absolute right-0 top-12 z-50 w-[250px] rounded-2xl p-1.5" style={{ background: 'var(--panel-solid)' }}>
-                <MenuItem icon="save" label={t('studio.menuSave')} onClick={() => void documentStore.saveNow().then(() => { toast.show(t('studio.toastSaved')); setMenu(false); })} />
+              <div role="menu" aria-label={t('studio.menuAria')} className="glass rise absolute right-0 top-12 z-50 w-[250px] rounded-2xl p-1.5" style={{ background: 'var(--panel-solid)' }}>
+                <MenuItem icon="save" label={t('studio.menuSave')} onClick={() => { void save(); setMenu(false); }} />
                 <MenuItem icon="download" label={t('studio.menuExport')} onClick={exportJson} />
                 <MenuItem icon="upload" label={t('studio.menuImport')} onClick={() => fileInput.current?.click()} />
                 <MenuItem icon={theme === 'dia' ? 'moon' : 'sun'} label={theme === 'dia' ? t('studio.menuNight') : t('studio.menuDay')} onClick={() => { setTheme(theme === 'dia' ? 'noite' : 'dia'); setMenu(false); }} />
-                <a className="flex min-h-[44px] items-center gap-3 rounded-xl px-3 text-[13.5px] font-semibold hover:bg-white/5" href={worldUrl} target="_blank" rel="noopener noreferrer">
+                <a role="menuitem" className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-[13.5px] font-semibold hover:bg-white/5" href={worldUrl} target="_blank" rel="noopener noreferrer">
                   <Icon name="external" size={18} /> {t('studio.menuOpenWorld')}
                 </a>
-                <MenuItem icon="trash" label={t('studio.menuRestore')} danger onClick={() => void restoreOriginal()} />
+                <MenuItem icon="trash" label={t('studio.menuRestore')} danger onClick={restoreOriginal} />
               </div>
             </>
           )}
           <input ref={fileInput} type="file" accept="application/json,.json" className="hidden" onChange={(e) => void importJson(e.target.files?.[0])} />
         </div>
       </header>
+
+      {/* Borrador ilegible: datos preservados, autoguardado suspendido hasta decidir. */}
+      {state.recovery && (
+        <div
+          role="alert"
+          className="rise glass fixed inset-x-2 z-40 rounded-2xl p-3 md:left-1/2 md:right-auto md:w-[520px] md:-translate-x-1/2"
+          style={{ top: 'calc(var(--safe-t) + 68px)', background: 'var(--panel-solid)', borderColor: 'var(--danger)' }}
+        >
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 shrink-0" style={{ color: 'var(--danger)' }}>
+              <Icon name="info" size={20} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <strong className="block text-[13.5px]">{t('recovery.title')}</strong>
+              <p className="pt-0.5 text-[12.5px] leading-snug" style={{ color: 'var(--muted)' }}>
+                {t(`recovery.${state.recovery.status}` as TranslationKey)} {t('recovery.detail')}
+              </p>
+              <p className="pt-1 text-[11.5px]" style={{ color: 'var(--muted)' }}>
+                {t('recovery.copiesKept')}
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {state.recovery.raw && (
+                  <button
+                    className="btn btn-primary !min-h-11"
+                    onClick={() => {
+                      downloadRecovery(state.recovery!.raw!);
+                      documentStore.resolveRecovery();
+                    }}
+                  >
+                    {t('recovery.download')}
+                  </button>
+                )}
+                <button className="btn !min-h-11" onClick={() => documentStore.resolveRecovery()}>
+                  {t('recovery.continue')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ferramentas */}
       <div className="studio-dock flex flex-col items-center gap-2">
@@ -419,8 +661,10 @@ function StudioEditor({ initialView, onPreview }: { initialView: CameraView; onP
             return (
               <button
                 key={id}
+                id={`studio-tab-${id}`}
                 role="tab"
                 aria-selected={on}
+                aria-controls="studio-tabpanel"
                 onClick={() => onTab(id)}
                 className="flex flex-1 flex-col items-center justify-center gap-0.5 rounded-2xl text-[10.5px] font-bold transition-colors"
                 style={on ? { background: 'color-mix(in srgb, var(--accent) 22%, transparent)', color: 'var(--fg)' } : { color: 'var(--muted)' }}
@@ -431,7 +675,12 @@ function StudioEditor({ initialView, onPreview }: { initialView: CameraView; onP
             );
           })}
         </div>
-        <div className={`scroll-y min-h-0 flex-1 px-4 pb-6 pt-3 ${sheetOpen ? 'block' : 'hidden md:block'}`}>
+        <div
+          id="studio-tabpanel"
+          role="tabpanel"
+          aria-labelledby={`studio-tab-${tab}`}
+          className={`scroll-y min-h-0 flex-1 px-4 pb-6 pt-3 ${sheetOpen ? 'block' : 'hidden md:block'}`}
+        >
           <div>
             {tab === 'library' && <LibraryTab onAdd={addModel} />}
             {tab === 'scene' && (
@@ -443,7 +692,12 @@ function StudioEditor({ initialView, onPreview }: { initialView: CameraView; onP
                   setSel(r);
                   if (e) engine?.flyToPoint(e.placement.position, 18);
                 }}
+                onCreateBuilding={(modelId) => {
+                  const model = getModel(modelId);
+                  if (model?.category === 'building') addModel(model);
+                }}
                 onToggleVisible={(r, v) => update((d) => patchEntity(d, r, { visible: v }))}
+                onRemove={deleteEntityNow}
               />
             )}
             {tab === 'points' && (
@@ -451,11 +705,14 @@ function StudioEditor({ initialView, onPreview }: { initialView: CameraView; onP
                 doc={doc}
                 editingId={placeSel}
                 onEdit={setPlaceSel}
+                onCreate={createPoint}
                 onPatch={(id, patch) => update((d) => patchPlace(d, id, patch), `plc:${id}:${Object.keys(patch).join(',')}`)}
                 onShowPlace={(id) => {
                   const p = findPlace(doc, id);
                   if (p) engine?.flyToPoint(p.position, 18);
                 }}
+                onDuplicate={duplicatePlaceById}
+                onRemove={deletePlaceNow}
               />
             )}
             {tab === 'business' && (
@@ -463,13 +720,16 @@ function StudioEditor({ initialView, onPreview }: { initialView: CameraView; onP
                 doc={doc}
                 editingId={editingBiz}
                 onEdit={setEditingBiz}
-                onCreate={() => createBiz(sel?.kind === 'building' ? sel.id : null)}
+                onCreate={() => createBiz(null)}
                 onPatch={(id, patch: Partial<Business>) => update((d) => patchBusiness(d, id, patch), `biz:${id}:${Object.keys(patch)[0]}`)}
                 onRemove={(id) => {
+                  if (!documentStore.getState().doc.businesses.some((b) => b.id === id)) return;
                   update((d) => removeBusiness(d, id));
                   setEditingBiz(null);
+                  showToast(t('studio.removed'));
                 }}
                 onShowBuilding={showBuilding}
+                onDuplicate={duplicateBusinessById}
               />
             )}
             {tab === 'props' && (
@@ -481,6 +741,7 @@ function StudioEditor({ initialView, onPreview }: { initialView: CameraView; onP
                 onPlacement={(patch, key) => sel && update((d) => patchEntity(d, sel, { placement: patch }), key)}
                 onSwapModel={swapModel}
                 onAlign={alignSelected}
+                onTestOrbit={() => sel && onPreviewOrbit(engine?.getView() ?? STUDIO_VIEW, sel)}
                 onDuplicate={duplicateSelected}
                 onDelete={deleteSelected}
                 onLinkBusiness={(id, bid) => update((d) => patchBusiness(d, id, { buildingId: bid }))}
@@ -505,6 +766,31 @@ function StudioEditor({ initialView, onPreview }: { initialView: CameraView; onP
           </div>
         </div>
       )}
+      {animOpen && (
+        <AnimationPanel
+          doc={doc}
+          entity={entity}
+          place={placeSel ? findPlace(doc, placeSel) : undefined}
+          onClose={() => setAnimOpen(false)}
+          onGeneral={(config: WorldAnimationConfig, key) => update((d) => ({ ...d, animation: config }), key)}
+          onEntity={(overrides: AnimationOverrides | undefined, key) => sel && update((d) => patchEntity(d, sel, { animation: overrides }), key)}
+          onPlace={(overrides: AnimationOverrides | undefined, key) => placeSel && update((d) => patchPlace(d, placeSel, { animation: overrides }), key)}
+        />
+      )}
+      {pending && pendingDialog && (
+        <ConfirmDialog
+          label={pendingDialog.label}
+          message={pendingDialog.message}
+          onCancel={() => setPending(null)}
+          onConfirm={() => {
+            const target = pending;
+            setPending(null);
+            if (target.kind === 'entity') deleteEntityNow(target.ref);
+            else if (target.kind === 'place') deletePlaceNow(target.id);
+            else void restoreOriginalNow();
+          }}
+        />
+      )}
       <Toast msg={toast.msg} />
     </div>
   );
@@ -512,7 +798,7 @@ function StudioEditor({ initialView, onPreview }: { initialView: CameraView; onP
 
 function MenuItem({ icon, label, onClick, danger }: { icon: IconName; label: string; onClick: () => void; danger?: boolean }) {
   return (
-    <button className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3 text-left text-[13.5px] font-semibold hover:bg-white/5" style={danger ? { color: 'var(--danger)' } : undefined} onClick={onClick}>
+    <button role="menuitem" className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[13.5px] font-semibold hover:bg-white/5" style={danger ? { color: 'var(--danger)' } : undefined} onClick={onClick}>
       <Icon name={icon} size={18} /> {label}
     </button>
   );

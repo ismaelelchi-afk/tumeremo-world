@@ -1,30 +1,61 @@
+import { useState } from 'react';
 import type { EntityRef, WorldDocument } from '../../core/types';
 import { localizedText, useI18n } from '../../i18n';
-import { getModel } from '../../data/models';
+import { getModel, getModelLibrary } from '../../data/models';
+import { ConfirmButton } from '../../ui/ConfirmButton';
 import { Icon } from '../../ui/Icon';
 
 export function SceneTab({
   doc,
   selected,
   onSelect,
+  onCreateBuilding,
   onToggleVisible,
+  onRemove,
 }: {
   doc: WorldDocument;
   selected: EntityRef | null;
   onSelect: (r: EntityRef) => void;
+  onCreateBuilding: (modelId: string) => void;
   onToggleVisible: (r: EntityRef, visible: boolean) => void;
+  onRemove: (r: EntityRef) => void;
 }) {
   const { lang, t } = useI18n();
+  const buildingModels = getModelLibrary().filter((m) => m.category === 'building');
+  const [newModelId, setNewModelId] = useState(buildingModels[0]?.id ?? '');
   const rows = [
     ...doc.buildings.map((e) => ({ ref: { kind: 'building', id: e.id } as EntityRef, e })),
     ...doc.objects.map((e) => ({ ref: { kind: 'object', id: e.id } as EntityRef, e })),
   ];
   return (
-    <div className="space-y-1">
-      <p className="pb-2 text-[12.5px]" style={{ color: 'var(--muted)' }}>
-        {t('scene.count', { buildings: doc.buildings.length, objects: doc.objects.length })}
-      </p>
-      {rows.length === 0 && <p className="py-8 text-center text-[13px]" style={{ color: 'var(--muted)' }}>{t('scene.empty')}</p>}
+    <div className="space-y-3">
+      <div className="space-y-2 rounded-2xl p-3" style={{ background: 'var(--panel-2)', border: '1px solid var(--border)' }}>
+        <p className="text-[12.5px]" style={{ color: 'var(--muted)' }}>
+          {t('scene.count', { buildings: doc.buildings.length, objects: doc.objects.length })}
+        </p>
+        <div className="flex gap-2">
+          <select
+            className="field"
+            value={newModelId}
+            onChange={(e) => setNewModelId(e.target.value)}
+            aria-label={t('scene.newBuildingModelAria')}
+          >
+            {buildingModels.map((m) => (
+              <option key={m.id} value={m.id}>
+                {localizedText(m, 'name', lang)}
+              </option>
+            ))}
+          </select>
+          <button
+            className="btn btn-primary !min-h-11"
+            disabled={!newModelId}
+            onClick={() => newModelId && onCreateBuilding(newModelId)}
+          >
+            <Icon name="plus" size={16} /> {t('scene.newBuilding')}
+          </button>
+        </div>
+      </div>
+      {rows.length === 0 && <p className="py-6 text-center text-[13px]" style={{ color: 'var(--muted)' }}>{t('scene.empty')}</p>}
       {rows.map(({ ref, e }) => {
         const on = selected?.id === ref.id;
         const model = getModel(e.modelId);
@@ -46,9 +77,17 @@ export function SceneTab({
                 </span>
               </span>
             </button>
-            <button className="fab !h-9 !w-9" onClick={() => onToggleVisible(ref, !e.visible)} aria-label={e.visible ? t('common.hide') : t('common.show')}>
+            <button className="fab !h-11 !w-11" onClick={() => onToggleVisible(ref, !e.visible)} aria-label={e.visible ? t('common.hide') : t('common.show')}>
               <Icon name={e.visible ? 'eye' : 'eyeOff'} size={17} />
             </button>
+            <ConfirmButton
+              className="shrink-0"
+              triggerClassName="fab !h-11 !w-11"
+              triggerStyle={{ color: 'var(--danger)' }}
+              label={t('common.delete')}
+              message={t(ref.kind === 'building' ? 'scene.deleteConfirm' : 'scene.deleteObjectConfirm', { name: localizedText(e, 'name', lang) })}
+              onConfirm={() => onRemove(ref)}
+            />
           </div>
         );
       })}

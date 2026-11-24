@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { StudioApp } from './apps/studio/StudioApp';
 import { useI18n } from './i18n';
-import { WorldApp } from './apps/world/WorldApp';
+import { WorldCityApp } from './apps/world/WorldCityApp';
 
 type Mode = 'world' | 'studio';
 
@@ -31,5 +31,5 @@ export default function App({ forceMode }: { forceMode?: Mode }) {
     document.querySelector('meta[name="description"]')?.setAttribute('content', t(studio ? 'app.studioDescription' : 'app.description'));
   }, [mode, t]);
 
-  return mode === 'studio' ? <StudioApp /> : <WorldApp />;
+  return mode === 'studio' ? <StudioApp /> : <WorldCityApp />;
 }

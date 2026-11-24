@@ -5,11 +5,13 @@ import { getModel } from '../../data/models';
 import { localizedText, useI18n } from '../../i18n';
 import { Icon } from '../../ui/Icon';
 import { VISUAL } from '../../ui/useEngine';
-import { businessesOf, nearbyBuildings, nearestPlace } from './lookups';
+import { businessesOf } from './lookups';
 
 interface Props {
   selection: WorldSelection;
   doc: WorldDocument;
+  /** La vista previa del STUDIO incluye borradores; el WORLD público solo publicados. */
+  showUnpublished?: boolean;
   onSelect: (s: WorldSelection, fly?: boolean) => void;
   onClose: () => void;
   onCopy: (text: string) => void;
@@ -26,7 +28,7 @@ function Shell({ children, onClose, accent }: { children: React.ReactNode; onClo
         <span className="h-1 w-10 rounded-full" style={{ background: 'var(--border)' }} />
       </div>
       <div className="h-[3px] w-full md:mt-0" style={{ background: `linear-gradient(90deg, ${accent}, transparent)` }} />
-      <button className="fab absolute right-2 top-3 z-20 !h-10 !w-10" onClick={onClose} aria-label={t('info.closePanel')}>
+      <button className="fab absolute right-2 top-3 z-20 !h-11 !w-11" onClick={onClose} aria-label={t('info.closePanel')}>
         <Icon name="close" size={18} />
       </button>
       <div className="px-5 pb-1 pt-4">{children}</div>
@@ -69,10 +71,9 @@ function BusinessCard({ b, onClick }: { b: Business; onClick: () => void }) {
   );
 }
 
-function PlaceView({ place, doc, onSelect, onCopy }: { place: Place; doc: WorldDocument } & Pick<Props, 'onSelect' | 'onCopy'>) {
-  const { lang, t, formatMeters } = useI18n();
+function PlaceView({ place, onCopy }: { place: Place } & Pick<Props, 'onCopy'>) {
+  const { lang, t } = useI18n();
   const color = VISUAL.placeColors[place.category];
-  const near = nearbyBuildings(doc, place.position, 220).slice(0, 4);
   const osm = `https://www.openstreetmap.org/?mlat=${place.position.lat}&mlon=${place.position.lng}#map=19/${place.position.lat}/${place.position.lng}`;
   return (
     <>
@@ -90,18 +91,6 @@ function PlaceView({ place, doc, onSelect, onCopy }: { place: Place; doc: WorldD
             : place.source.note}
         </Row>
       </div>
-      {near.length > 0 && (
-        <div className="mt-3">
-          <span className="label">{t('info.nearby')}</span>
-          <div className="flex flex-wrap gap-2">
-            {near.map(({ building, meters }) => (
-              <button key={building.id} className="btn btn-sm" onClick={() => onSelect({ kind: 'building', id: building.id }, true)}>
-                {localizedText(building, 'name', lang)} · {formatMeters(meters)}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
       <div className="mt-4 flex gap-2">
         <button className="btn btn-sm flex-1" onClick={() => onCopy(formatCoords(place.position, lang))}>
           <Icon name="clipboard" size={16} /> {t('info.copyCoords')}
@@ -114,15 +103,12 @@ function PlaceView({ place, doc, onSelect, onCopy }: { place: Place; doc: WorldD
   );
 }
 
-function BuildingView({ id, doc, onSelect }: { id: string; doc: WorldDocument } & Pick<Props, 'onSelect'>) {
-  const { lang, t, formatNumber, formatMeters } = useI18n();
+function BuildingView({ id, doc, onSelect, showUnpublished }: { id: string; doc: WorldDocument; showUnpublished: boolean } & Pick<Props, 'onSelect'>) {
+  const { lang, t, formatNumber } = useI18n();
   const b = doc.buildings.find((x) => x.id === id);
   if (!b) return <p>{t('info.buildingMissing')}</p>;
-  const biz = businessesOf(doc, b.id);
+  const biz = businessesOf(doc, b.id, !showUnpublished);
   const model = getModel(b.modelId);
-  const near = b.placeId
-    ? nearestPlace((doc.places ?? []).filter((p) => p.id === b.placeId && p.visible !== false), b.placement.position)
-    : null;
   return (
     <>
       <span className="chip">
@@ -132,7 +118,6 @@ function BuildingView({ id, doc, onSelect }: { id: string; doc: WorldDocument } 
       {b.description && <p className="mt-2 text-[13.5px] leading-relaxed">{localizedText(b, 'description', lang)}</p>}
       <div className="mt-3">
         <Row icon="pin">{formatCoords(b.placement.position, lang)}</Row>
-        {near && <Row icon="map">{t('info.near', { name: localizedText(near.place, 'name', lang), distance: formatMeters(near.meters) })}</Row>}
         <Row icon="cube">
           {t('info.dimensions', {
             w: formatNumber(b.params.width, { maximumFractionDigits: 0 }),
@@ -174,6 +159,7 @@ function BusinessView({ id, doc, onSelect }: { id: string; doc: WorldDocument } 
       <span className="chip">
         <span className="h-2 w-2 rounded-full" style={{ background: b.color }} />
         {businessCategoryLabel(b.category, lang)} {b.origin === 'demo' ? t('info.demoProfile') : ''}
+        {!b.published ? ` · ${t('business.draft')}` : ''}
       </span>
       <h2 className="mt-2 pr-10 text-[21px] font-bold leading-tight">{localizedText(b, 'name', lang)}</h2>
       {b.description && <p className="mt-2 text-[13.5px] leading-relaxed">{localizedText(b, 'description', lang)}</p>}
@@ -188,7 +174,7 @@ function BusinessView({ id, doc, onSelect }: { id: string; doc: WorldDocument } 
         )}
         {wa && (
           <Row icon="phone">
-            <a href={`https://wa.me/${wa}`} target="_blank" rel="noopener noreferrer" className="underline">WhatsApp: {b.whatsapp}</a>
+            <a href={`https://wa.me/${wa}`} target="_blank" rel="noopener noreferrer" className="underline">{t('shop.whatsapp')}: {b.whatsapp}</a>
           </Row>
         )}
         {ig && (
@@ -209,16 +195,16 @@ function BusinessView({ id, doc, onSelect }: { id: string; doc: WorldDocument } 
   );
 }
 
-export function InfoPanel({ selection, doc, onSelect, onClose, onCopy }: Props) {
+export function InfoPanel({ selection, doc, showUnpublished = false, onSelect, onClose, onCopy }: Props) {
   let accent = '#e8b34b';
   let body: React.ReactNode = null;
   if (selection.kind === 'place') {
     const place = doc.places?.find((p) => p.id === selection.id && p.visible !== false);
     if (!place) return null;
     accent = VISUAL.placeColors[place.category];
-    body = <PlaceView place={place} doc={doc} onSelect={onSelect} onCopy={onCopy} />;
+    body = <PlaceView place={place} onCopy={onCopy} />;
   } else if (selection.kind === 'building') {
-    body = <BuildingView id={selection.id} doc={doc} onSelect={onSelect} />;
+    body = <BuildingView id={selection.id} doc={doc} showUnpublished={showUnpublished} onSelect={onSelect} />;
   } else if (selection.kind === 'business') {
     accent = doc.businesses.find((b) => b.id === selection.id)?.color ?? accent;
     body = <BusinessView id={selection.id} doc={doc} onSelect={onSelect} />;

@@ -1,16 +1,1 @@
-[
-  { "id": "plc_plaza-bolivar", "name": "Plaza Bolívar", "category": "square", "position": { "lng": -61.504973, "lat": 7.30127 }, "source": { "type": "osm", "layer": "poi", "subclass": "park" } },
-  { "id": "plc_alcaldia-sifontes", "name": "Alcaldía del Municipio Sifontes", "category": "government", "position": { "lng": -61.504072, "lat": 7.302275 }, "source": { "type": "osm", "layer": "poi", "subclass": "townhall" } },
-  { "id": "plc_igreja-centro", "name": "Igreja (sem nome no OSM)", "i18n": { "es": { "name": "Iglesia (sin nombre en OSM)" } }, "category": "worship", "position": { "lng": -61.504555, "lat": 7.300834 }, "source": { "type": "osm", "layer": "poi", "subclass": "christian" } },
-  { "id": "plc_hotel-central", "name": "Hotel Central", "category": "lodging", "position": { "lng": -61.50574, "lat": 7.300913 }, "source": { "type": "osm", "layer": "poi", "subclass": "hotel" } },
-  { "id": "plc_banesco", "name": "Banesco", "category": "bank", "position": { "lng": -61.505542, "lat": 7.300828 }, "source": { "type": "osm", "layer": "poi", "subclass": "bank" } },
-  { "id": "plc_cc-ursulas", "name": "C.C. Ursulas Center", "category": "market", "position": { "lng": -61.507119, "lat": 7.300498 }, "source": { "type": "osm", "layer": "poi", "subclass": "mall" } },
-  { "id": "plc_churrasqueria-valdenor", "name": "Churrasqueria Valdenor", "category": "food", "position": { "lng": -61.506813, "lat": 7.302068 }, "source": { "type": "osm", "layer": "poi", "subclass": "restaurant" } },
-  { "id": "plc_uen-vicente-marcano", "name": "U.E.N. Vicente Marcano", "category": "education", "position": { "lng": -61.505874, "lat": 7.303499 }, "source": { "type": "osm", "layer": "poi", "subclass": "school" } },
-  { "id": "plc_hospital-jgh", "name": "Hospital José Gregorio Hernández", "category": "health", "position": { "lng": -61.49815, "lat": 7.296614 }, "source": { "type": "osm", "layer": "poi", "subclass": "hospital" } },
-  { "id": "plc_terminal", "name": "Terminal de Pasajeros", "category": "transport", "position": { "lng": -61.50794, "lat": 7.308246 }, "source": { "type": "osm", "layer": "poi", "subclass": "bus_station" } },
-  { "id": "plc_mercado-nuevo", "name": "Mercado Nuevo", "category": "market", "position": { "lng": -61.507344, "lat": 7.308357 }, "source": { "type": "osm", "layer": "poi", "subclass": "marketplace" } },
-  { "id": "plc_posada-don-marcelo", "name": "Posada Don Marcelo", "category": "lodging", "position": { "lng": -61.512017, "lat": 7.293480 }, "source": { "type": "osm", "layer": "poi", "subclass": "hotel" } },
-  { "id": "plc_restaurante-el-estribo", "name": "Restaurante El Estribo", "category": "food", "position": { "lng": -61.514259, "lat": 7.312417 }, "source": { "type": "osm", "layer": "poi", "subclass": "restaurant" } },
-  { "id": "plc_posada-kaypoa", "name": "Hotel Posada Kaypoa", "category": "lodging", "position": { "lng": -61.51611, "lat": 7.318451 }, "source": { "type": "osm", "layer": "poi", "subclass": "hotel" } }
-]
+[]

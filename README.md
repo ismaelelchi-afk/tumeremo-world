@@ -11,11 +11,11 @@ El mapa base procede de datos abiertos de OpenStreetMap servidos por OpenFreeMap
 
 ### WORLD
 
-Vista de consulta del mundo digital: mapa real en 2D o 3D, edificios y objetos ubicados en el territorio, puntos de interés y comercios. Incluye búsqueda con filtros, fichas informativas, temas día/noche, geolocalización y panel de atribuciones. El WORLD muestra únicamente el contenido publicado y visible; el estado del documento (original o borrador) se indica en la cabecera cuando existe un borrador local.
+Vista de consulta del mundo digital: mapa real en 2D o 3D, edificios y objetos ubicados en el territorio, puntos de interés y comercios. Incluye búsqueda con filtros, fichas informativas, temas día/noche, geolocalización y panel de atribuciones. El WORLD muestra únicamente el contenido publicado y visible; el estado del documento (original o borrador) se indica en la cabecera cuando existe un borrador local. Cada elemento tiene un enlace profundo `#/item/<kind>/<id>` que restaura la selección y la cámara; `#/studio` queda reservado al editor.
 
 ### STUDIO
 
-Editor territorial con vista previa del WORLD mediante el mismo documento. Organiza el trabajo en cinco áreas: biblioteca de modelos, escena, puntos, comercios y propiedades. Dispone de herramientas de selección, movimiento, rotación y escalado, alineación de edificios con la vía más cercana, duplicado, eliminación, control de visibilidad y edición de parámetros de cada modelo. También permite gestionar los 14 puntos de interés y sus comercios asociados, deshacer y rehacer cambios, guardar automáticamente en el navegador, importar y exportar el documento en JSON y restaurar el estado original.
+Editor territorial con vista previa del WORLD mediante el mismo documento. Organiza el trabajo en cinco áreas: biblioteca de modelos, escena, puntos, comercios y propiedades. Dispone de herramientas de selección, movimiento, rotación y escalado, alineación de edificios con la vía más cercana, duplicado de entidades, puntos y comercios, eliminación, control de visibilidad y edición de parámetros de cada modelo. Las copias son aditivas y bilingües: el original queda intacto y un comercio duplicado empieza sin publicar. Las confirmaciones se resuelven en la propia interfaz, sin cuadros bloqueantes del navegador. También permite gestionar los 14 puntos de interés y sus comercios asociados, deshacer y rehacer cambios, guardar automáticamente en el navegador, importar y exportar el documento en JSON y restaurar el estado original.
 
 La biblioteca incluye 13 modelos procedimentales (9 edificios y 4 objetos). STUDIO también acepta modelos propios en formato GLB: se validan, se almacenan en IndexedDB y pueden viajar dentro del JSON exportado para reutilizarlos en otra instalación.
 
@@ -33,12 +33,13 @@ La biblioteca incluye 13 modelos procedimentales (9 edificios y 4 objetos). STUD
 
 **STUDIO**
 
-- Herramientas select / mover / rotar / escala y atajos de teclado para cambiar de herramienta, duplicar, eliminar y deshacer/rehacer.
+- Herramientas select / mover / rotar / escala (V/M/R/E) y atajos: `Ctrl+D` duplica, `Supr` elimina, `Ctrl+S` guarda, `Ctrl+Z`/`Ctrl+Y` deshacen y rehacen, `Escape` limpia la selección.
 - Biblioteca de modelos, con importación de GLB, miniatura generada al importar y detección de duplicados por hash.
 - Edición de nombre, descripción, categoría, icono, visibilidad, posición y otros campos de lugares y comercios.
 - Ajuste de dimensiones y colores de los modelos, sustitución de modelo y alineación con vías.
-- Guardado automático, guardado manual, importación/exportación de JSON y restauración del documento original.
-- Vista previa del WORLD con el documento actual, sin publicarlo.
+- Guardado automático, guardado manual con resultado real (`saveNow()`), importación/exportación de JSON y restauración del documento original. El indicador distingue entre cambios sin guardar, guardado y versión original.
+- Vista previa del WORLD con el documento actual y `showUnpublished: true`, sin publicarlo: el editor permanece montado, el motor se pausa y se conservan pestaña, selección, herramienta y tema.
+- Duplicado de puntos y comercios desde la lista y la vista de edición; `Ctrl+D` duplica el elemento activo (entidad, punto o comercio). Las copias mantienen las variantes ES/PT-BR y los comercios copiados quedan como borrador.
 
 ## Idiomas
 
@@ -58,6 +59,12 @@ El documento inicial contiene 14 puntos de interés, 8 edificios, 11 objetos y 4
 | Modelos GLB importados | IndexedDB → base de datos `tumeremo-world`, almacén `glb-models` |
 
 La validación del documento normaliza la versión del esquema sin descartar contenido por diferencias de versión, conserva las variantes de idioma y reincorpora los puntos semilla que falten sin duplicar los existentes. La exportación de STUDIO genera un JSON con el documento y, cuando existen, los modelos GLB codificados en base64; la importación los reutiliza por hash o los registra con un identificador nuevo si hay conflicto.
+
+### Recuperación y guardado
+
+Si el borrador local está corrupto o no supera la validación, se conserva intacto en cuarentena y se crea una copia de seguridad antes de migrar; el autoguardado queda suspendido hasta que el usuario decida. Al reanudar, las copias se conservan y solo una restauración confirmada puede descartarlas. La validación repara entidades en lugar de eliminarlas y las bajas de puntos se registran para que la semilla no los reincorpore.
+
+STUDIO no usa `window.confirm`: las bajas se confirman en la propia interfaz y las acciones sin botón visible (teclado, restaurar) usan un diálogo controlado. `saveNow()` devuelve si el guardado funcionó; si falla, los cambios siguen en memoria y se ofrece reintentar.
 
 ## Tecnologías
 
@@ -99,6 +106,7 @@ El servidor de desarrollo se inicia en `http://localhost:5175` y escucha en `0.0
 | `/` | WORLD |
 | `/studio.html` | STUDIO (servidor de desarrollo) |
 | `/#/studio` | STUDIO (build de archivo único) |
+| `/#/item/<kind>/<id>` | WORLD: selección compartible (restaura cámara) |
 
 El build de producción genera un único `dist/index.html` que contiene ambas experiencias. El modo se decide por la ruta o por el fragmento `#/studio`.
 

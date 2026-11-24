@@ -22,7 +22,7 @@ export function LanguageSwitch({ compact = false }: { compact?: boolean }) {
             onClick={() => setLang(opt.lang)}
             aria-pressed={active}
             title={t(opt.name)}
-            className={`rounded-full font-extrabold leading-none transition-colors ${compact ? 'h-7 px-1.5 text-[9px]' : 'h-8 px-2.5 text-[10px]'}`}
+            className={`relative rounded-full font-extrabold leading-none transition-colors after:absolute after:-inset-2 after:content-[''] ${compact ? 'h-7 px-1.5 text-[9px]' : 'h-8 px-2.5 text-[10px]'}`}
             style={active ? { background: 'var(--accent)', color: 'var(--accent-ink)' } : { color: 'var(--muted)' }}
           >
             {t(opt.key)}

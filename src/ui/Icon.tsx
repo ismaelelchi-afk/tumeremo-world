@@ -42,6 +42,7 @@ const PATHS = {
   phone: 'M5 4h4l2 5-2.500 1.500a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z',
   chevronUp: 'm6 15 6-6 6 6',
   chevronDown: 'm6 9 6 6 6-6',
+  compass: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18ZM15.5 8.5l-2.2 4.8-4.8 2.2 2.2-4.8 4.8-2.2Z',
 } as const;
 
 export type IconName = keyof typeof PATHS;

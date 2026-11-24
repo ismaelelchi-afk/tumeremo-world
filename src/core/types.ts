@@ -18,6 +18,7 @@
  * por lo que los documentos antiguos y las importaciones sin traducciones siguen siendo válidos.
  */
 import type { HasLocalizedTexts } from '../i18n/types';
+import type { AnimationOverrides, WorldAnimationConfig } from './animation';
 
 /** Identificador único com prefixo de tipo: `bld_x8k2m9qa`, `biz_…`, `obj_…`, `plc_…`, `mdl_…`. */
 export type Id = string;
@@ -60,7 +61,11 @@ export type ProceduralRecipe =
   | 'moriche-palm'
   | 'tree'
   | 'street-lamp'
-  | 'totem';
+  | 'totem'
+  /** Recetas añadidas para los tres edificios de WORLD (aditivas; no sustituyen a las anteriores). */
+  | 'colonial'
+  | 'tecno'
+  | 'boutique';
 
 /** Origem da geometria de um modelo. `glb` carrega um arquivo glTF binário via GLTFLoader. */
 export type ModelSource =
@@ -90,10 +95,16 @@ export interface CustomBuilding extends HasLocalizedTexts {
   placement: Placement;
   params: ModelParams;
   description: string;
-  /** Referência opcional a um Place (lugar real de referência). */
+  /**
+   * Legacy: referência opcional a um Place. Se conserva el campo por compatibilidad con
+   * documentos antiguos, pero la separación definitiva puntos ↔ estructuras lo deja
+   * siempre en `null`: ninguna estructura depende de un punto para existir.
+   */
   placeId: Id | null;
   visible: boolean;
   origin: Origin;
+  /** Override parcial de animaciones; ausente = usa la configuración general del documento. */
+  animation?: AnimationOverrides;
 }
 
 export interface WorldObject3D extends HasLocalizedTexts {
@@ -105,6 +116,8 @@ export interface WorldObject3D extends HasLocalizedTexts {
   params: ModelParams;
   visible: boolean;
   origin: Origin;
+  /** Override parcial de animaciones; ausente = usa la configuración general del documento. */
+  animation?: AnimationOverrides;
 }
 
 export type BusinessCategory =
@@ -164,6 +177,20 @@ export interface Place extends HasLocalizedTexts {
   visible: boolean;
   /** Ícone escolhido no STUDIO. Ausente = ícone padrão da categoria. */
   icon?: PlaceIcon;
+  /** Multiplicador de tamanho do marcador. Ausente = tamanho padrão (1). */
+  size?: number;
+  /** Cor principal do marcador. Ausente = cor da categoria. */
+  color?: string;
+  /** Cor do contorno do marcador. Ausente = halo do tema. */
+  strokeColor?: string;
+  /** Opacidade do marcador (0..1). Ausente = 1. */
+  opacity?: number;
+  /** Texto da etiqueta no mapa. Ausente ou vazio = nome do ponto. */
+  label?: string;
+  /** Exibir a etiqueta no mapa. Ausente = true. */
+  showLabel?: boolean;
+  /** Override parcial de animación de enfoque; ausente = usa la configuración general. */
+  animation?: AnimationOverrides;
 }
 
 /** Selecionável no WORLD. */
@@ -187,8 +214,30 @@ export interface WorldDocument {
   buildings: CustomBuilding[];
   objects: WorldObject3D[];
   businesses: Business[];
-  /** Opcional: documentos antigos não tinham lugares; a seed restaura os 14 originais. */
+  /** Configuración general de animaciones; el validador la rellena en documentos antiguos. */
+  animation?: WorldAnimationConfig;
+  /** Opcional: la semilla actual no contiene puntos; se conserva por compatibilidad. */
   places?: Place[];
+  /**
+   * Registro de bajas de PUNTOS en documentos heredados. La semilla ya no tiene puntos,
+   * pero el campo se mantiene para no rechazar importaciones antiguas.
+   */
+  removedPlaceIds?: string[];
+  /**
+   * Migración única de los tres comercios compartidos. Una vez aplicado, el documento
+   * respeta altas y bajas posteriores hechas en STUDIO: no se vuelven a inyectar.
+   */
+  featureMigration?: { applied: true };
+  /**
+   * Migración única que elimina los vínculos `placeId` entre estructuras y puntos.
+   * No reintroduce puntos borrados en STUDIO.
+   */
+  placesStructuresMigration?: { applied: true };
+  /**
+   * Migración única de limpieza del mundo: deja exclusivamente los tres edificios y
+   * comercios incorporados desde tumeremo-3d, sin puntos, objetos ni contenido de demo.
+   */
+  worldCleanupMigration?: { applied: true };
 }
 
 export interface ThemePalette {

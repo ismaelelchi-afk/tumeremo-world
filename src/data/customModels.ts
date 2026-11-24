@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { newId } from '../core/ids';
-import { validateDocument } from '../core/repository';
+import { validateDocumentDetailed, type ValidationReport } from '../core/repository';
 import type { ModelCategory, ModelDef, ModelParams, WorldDocument } from '../core/types';
 import { addModelAliases, getModel, getModelLibrary, MODEL_LIBRARY, registerModel } from './models';
 import { I18nError, translate, type TranslationKey } from '../i18n/translate';
@@ -50,6 +50,8 @@ export interface ImportResult {
   imported: number;
   reused: number;
   skipped: number;
+  /** Entidades reparadas en lugar de descartadas, con motivo por cada una. */
+  report?: ValidationReport;
 }
 
 const DB_NAME = 'tumeremo-world';
@@ -164,7 +166,46 @@ function validateGlbHeader(buffer: ArrayBuffer, fileName: string) {
   if (view.getUint32(8, true) !== buffer.byteLength) throw new I18nError('model.error.incompleteNamed', { file: fileName });
 }
 
+/**
+ * Un GLB puede referenciar recursos externos mediante `uri`. Se rechazan para que importar un
+ * archivo no provoque peticiones a URLs arbitrarias (privacidad/tracking). Los recursos
+ * embebidos (`data:` o bufferView) siguen funcionando.
+ */
+function assertNoExternalUris(buffer: ArrayBuffer, fileName: string) {
+  const view = new DataView(buffer);
+  let offset = 12;
+  while (offset + 8 <= buffer.byteLength) {
+    const length = view.getUint32(offset, true);
+    const type = view.getUint32(offset + 4, true);
+    if (offset + 8 + length > buffer.byteLength) break;
+    if (type === 0x4e4f534a) {
+      let json: unknown;
+      try {
+        json = JSON.parse(new TextDecoder().decode(new Uint8Array(buffer, offset + 8, length)));
+      } catch {
+        throw new I18nError('model.error.unreadableNamed', { file: fileName });
+      }
+      const visit = (node: unknown): void => {
+        if (!node || typeof node !== 'object') return;
+        if (Array.isArray(node)) {
+          node.forEach(visit);
+          return;
+        }
+        for (const [key, value] of Object.entries(node as Record<string, unknown>)) {
+          if (key === 'uri' && typeof value === 'string' && !value.startsWith('data:')) {
+            throw new I18nError('model.error.externalUriNamed', { file: fileName });
+          }
+          visit(value);
+        }
+      };
+      visit(json);
+    }
+    offset += 8 + length;
+  }
+}
+
 async function parseGlb(buffer: ArrayBuffer, fileName: string) {
+  assertNoExternalUris(buffer, fileName);
   let scene: THREE.Group;
   try {
     scene = (await new GLTFLoader().parseAsync(buffer, '')).scene;
@@ -383,22 +424,25 @@ async function importBundle(raw: CustomModelBundle): Promise<BundleResult> {
   const buffer = base64ToBuffer(raw.glb);
   validateGlbHeader(buffer, fileName);
   const parsed = await parseGlb(buffer, fileName);
-  const hash = typeof raw.hash === 'string' && /^[0-9a-f]{8,64}$/i.test(raw.hash)
-    ? raw.hash.toLowerCase()
-    : await hashBuffer(buffer);
+  // El hash declarado en el JSON es una pista, nunca una verdad: se recalcula siempre.
+  const hash = await hashBuffer(buffer);
 
   const aliases = Array.isArray(raw.aliases) ? raw.aliases.filter((a): a is string => typeof a === 'string' && /^[a-z0-9_]{3,80}$/i.test(a)) : [];
   const stored = await getAllStored();
   const duplicate = stored.find((r) => r.hash === hash);
   if (duplicate) {
-    const merged = Array.from(new Set([...(duplicate.aliases ?? []), ...aliases])).filter(
-      (a) => a !== duplicate.id && !BUILTIN_IDS.has(a),
-    );
+    const requestedId =
+      typeof raw.id === 'string' && /^[a-z0-9_]{3,80}$/i.test(raw.id) && !BUILTIN_IDS.has(raw.id) ? raw.id : null;
+    const canAlias = !!requestedId && requestedId !== duplicate.id && !getModel(requestedId);
+    const merged = Array.from(
+      new Set([...(duplicate.aliases ?? []), ...aliases, ...(requestedId ? [requestedId] : [])]),
+    ).filter((a) => a !== duplicate.id && !BUILTIN_IDS.has(a) && !getModel(a));
     const updated = { ...duplicate, aliases: merged };
     await putStored(updated);
     records.set(updated.id, updated);
     addModelAliases(merged, updated.id);
-    return { status: 'reused' };
+    // Sin este remap el documento seguiría referenciando un ID inexistente en otro equipo.
+    return { status: 'reused', remap: canAlias ? [requestedId!, duplicate.id] : undefined };
   }
 
   const detected = defaultsFromSize(parsed.size);
@@ -464,5 +508,6 @@ export async function importDocumentJson(text: string): Promise<ImportResult> {
     return typeof id === 'string' && !getModel(id);
   }).length;
 
-  return { doc: validateDocument(base), imported, reused, skipped };
+  const validated = validateDocumentDetailed(base);
+  return { doc: validated.doc, imported, reused, skipped, report: validated.report };
 }

@@ -1,4 +1,3 @@
-import { placeCategoryLabel } from '../../core/labels';
 import type { CustomBuilding, Entity3D, EntityRef, ModelParams, WorldDocument } from '../../core/types';
 import { getModel, getModelLibrary } from '../../data/models';
 import { localizedText, useI18n } from '../../i18n';
@@ -13,6 +12,7 @@ interface Props {
   onPlacement: (patch: { position?: { lng: number; lat: number }; heading?: number; scale?: number }, key: string) => void;
   onSwapModel: (modelId: string) => void;
   onAlign: () => void;
+  onTestOrbit: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
   onLinkBusiness: (businessId: string, buildingId: string | null) => void;
@@ -59,6 +59,12 @@ export function PropsTab(p: Props) {
         </select>
       </Field>
 
+      {model && (
+        <p className="text-[12px]" style={{ color: 'var(--muted)' }}>
+          {t('props.structuralCategory', { category: model.category === 'building' ? t('library.buildings') : t('library.objects') })}
+        </p>
+      )}
+
       <section className="space-y-3">
         <h3 className="label !mb-0">{t('props.posOrientation')}</h3>
         <div className="grid grid-cols-2 gap-2">
@@ -86,6 +92,9 @@ export function PropsTab(p: Props) {
         <Slider label={t('props.rotation')} value={e.placement.heading} min={0} max={359} step={1} unit="°" onChange={(v) => p.onPlacement({ heading: v }, k + 'rot')} />
         <button className="btn btn-sm w-full" onClick={p.onAlign}>
           <Icon name="road" size={16} /> {t('props.alignFacade')}
+        </button>
+        <button className="btn btn-sm w-full" onClick={p.onTestOrbit}>
+          <Icon name="rotate" size={16} /> {t('props.testOrbit')}
         </button>
         <Slider label={t('props.scale')} value={e.placement.scale} min={0.3} max={4} step={0.05} unit="×" onChange={(v) => p.onPlacement({ scale: v }, k + 'scale')} />
       </section>
@@ -124,17 +133,6 @@ export function PropsTab(p: Props) {
           <Field label={t('common.description')}>
             <textarea className="field" value={localizedText(building, 'description', lang)} onChange={(ev) => p.onPatch({ description: ev.target.value }, k + 'desc')} />
           </Field>
-          <Field label={t('props.realPlaceRef')}>
-            <select className="field" value={building.placeId ?? ''} onChange={(ev) => p.onPatch({ placeId: ev.target.value || null }, k + 'place')}>
-              <option value="">{t('common.none')}</option>
-              {(p.doc.places ?? []).map((pl) => (
-                <option key={pl.id} value={pl.id}>
-                  {localizedText(pl, 'name', lang)} ({placeCategoryLabel(pl.category, lang)})
-                </option>
-              ))}
-            </select>
-          </Field>
-
           <section className="space-y-2">
             <h3 className="label !mb-0">{t('props.businessesHere')}</h3>
             {linked.length === 0 && (

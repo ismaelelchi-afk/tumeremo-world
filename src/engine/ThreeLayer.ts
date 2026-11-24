@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import maplibregl from 'maplibre-gl';
-import type { CustomLayerInterface, CustomRenderMethodInput, Map as MlMap } from 'maplibre-gl';
+import type { CustomLayerInterface, CustomRenderMethodInput, Map as MlMap, MapMouseEvent } from 'maplibre-gl';
 import { hashString } from '../core/ids';
 import { getModel } from '../data/models';
 import type { Entity3D, EntityRef, LngLat, ModelParams, ThemePalette } from '../core/types';
@@ -11,6 +11,28 @@ interface Rec {
   key: string;
   outer: THREE.Group;
   entity: Entity3D;
+  /** Animaciones del modelo, recogidas una sola vez al construir (evita `traverse` por frame). */
+  ticks: Array<(t: number) => void>;
+}
+
+/** Halo del indicador: centro transparente para no dibujar un disco dentro de la estructura. */
+function hoverHaloTexture(): THREE.CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 128;
+  c.height = 128;
+  const g = c.getContext('2d')!;
+  const grad = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+  grad.addColorStop(0, 'rgba(255,255,255,0)');
+  grad.addColorStop(0.35, 'rgba(255,255,255,0)');
+  grad.addColorStop(0.55, 'rgba(255,255,255,0.55)');
+  grad.addColorStop(0.8, 'rgba(255,255,255,0.25)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 128, 128);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 4;
+  return t;
 }
 
 /**
@@ -41,8 +63,30 @@ export class ThreeLayer implements CustomLayerInterface {
   private selHelper = new THREE.Group();
   private selMat = new THREE.LineBasicMaterial({ color: '#ffd166', depthTest: false, transparent: true });
   private selFill = new THREE.MeshBasicMaterial({ color: '#ffd166', transparent: true, opacity: 0.16, depthTest: false, depthWrite: false });
+  /** Indicador de enfoque por hover: anillo, onda y halo sobre el suelo (Tumeremo.com). */
+  private hovered: EntityRef | null = null;
+  private hoverHelper = new THREE.Group();
+  private ring: THREE.Mesh;
+  private ripple: THREE.Mesh;
+  private halo: THREE.Mesh;
+  private ringMat: THREE.MeshBasicMaterial;
+  private rippleMat: THREE.MeshBasicMaterial;
+  private haloMat: THREE.MeshBasicMaterial;
+  private haloTexture: THREE.CanvasTexture;
+  /** Mientras una secuencia de cámara fija el pulso, el puntero no puede moverlo ni apagarlo. */
+  private pulsePinned: EntityRef | null = null;
+  private onPointerMove = (e: MapMouseEvent) => {
+    if (this.pulsePinned) return;
+    this.setHover(this.pick(e.point));
+  };
+  private onPointerOut = () => {
+    if (this.pulsePinned) return;
+    this.setHover(null);
+  };
   private lastRepaint = 0;
   private t0 = performance.now();
+  /** Durante un gesto MapLibre ya repinta: no encolamos frames extra desde aquí. */
+  private interacting = false;
   onResourceLoaded: () => void = () => this.map?.triggerRepaint();
 
   constructor(origin: LngLat) {
@@ -52,6 +96,28 @@ export class ThreeLayer implements CustomLayerInterface {
     this.sun.position.set(-60, -80, 110);
     this.scene.add(this.ambient, this.sun, this.selHelper);
     this.selHelper.visible = false;
+
+    // Indicador original: geometrías, alturas y renderOrder del marcador de Tumeremo.com.
+    this.ringMat = new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.9, depthWrite: false });
+    this.ring = new THREE.Mesh(new THREE.RingGeometry(0.86, 1, 64), this.ringMat);
+    this.rippleMat = this.ringMat.clone();
+    this.ripple = new THREE.Mesh(new THREE.RingGeometry(0.94, 1, 64), this.rippleMat);
+    this.haloTexture = hoverHaloTexture();
+    this.haloMat = new THREE.MeshBasicMaterial({
+      map: this.haloTexture,
+      transparent: true,
+      depthWrite: false,
+      opacity: 0.6,
+    });
+    this.halo = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), this.haloMat);
+    for (const m of [this.ring, this.ripple, this.halo]) {
+      m.frustumCulled = false;
+      m.renderOrder = 3;
+      m.raycast = () => {};
+      this.hoverHelper.add(m);
+    }
+    this.hoverHelper.visible = false;
+    this.scene.add(this.hoverHelper);
   }
 
   onAdd(map: MlMap, gl: WebGL2RenderingContext | WebGLRenderingContext) {
@@ -59,12 +125,28 @@ export class ThreeLayer implements CustomLayerInterface {
     this.renderer = new THREE.WebGLRenderer({ canvas: map.getCanvas(), context: gl, antialias: true });
     this.renderer.autoClear = false;
     this.raycaster.camera = this.camera;
+    map.on('mousemove', this.onPointerMove);
+    map.on('mouseout', this.onPointerOut);
   }
 
   onRemove() {
+    this.map?.off('mousemove', this.onPointerMove);
+    this.map?.off('mouseout', this.onPointerOut);
     this.records.forEach((r) => disposeObject(r.outer));
     this.records.clear();
+    this.clearSelectionGeometries();
+    this.selMat.dispose();
+    this.selFill.dispose();
+    disposeObject(this.hoverHelper);
+    this.haloTexture.dispose();
     this.renderer?.dispose();
+  }
+
+  /** MapLibre llama a esto durante el gesto; evita repeticiones de repintado por frame. */
+  setInteracting(value: boolean) {
+    if (this.interacting === value) return;
+    this.interacting = value;
+    if (!value) this.map?.triggerRepaint();
   }
 
   render(_gl: WebGL2RenderingContext | WebGLRenderingContext, args: CustomRenderMethodInput) {
@@ -74,22 +156,22 @@ export class ThreeLayer implements CustomLayerInterface {
     this.hasMatrix = true;
 
     const t = (performance.now() - this.t0) / 1000;
-    let animated = this.selHelper.visible;
-    this.scene.traverse((o) => {
-      const tick = o.userData.tick as ((t: number) => void) | undefined;
-      if (tick) {
+    let animated = this.selHelper.visible || this.hovered !== null;
+    for (const rec of this.records.values()) {
+      for (const tick of rec.ticks) {
         tick(t);
         animated = true;
       }
-    });
+    }
     if (this.selHelper.visible) {
       this.selMat.opacity = 0.65 + 0.35 * Math.sin(t * 4);
     }
+    if (this.hovered) this.updateHover(t);
 
     this.renderer.resetState();
     this.renderer.render(this.scene, this.camera);
 
-    if (animated) {
+    if (animated && !this.interacting) {
       const now = performance.now();
       if (now - this.lastRepaint > 30) {
         this.lastRepaint = now;
@@ -147,9 +229,14 @@ export class ThreeLayer implements CustomLayerInterface {
         const outer = this.buildOuter(e, label);
         if (!outer) continue;
         outer.userData.ref = { kind: e.kind, id: e.id } satisfies EntityRef;
+        const ticks: Array<(t: number) => void> = [];
+        outer.traverse((o) => {
+          const tick = o.userData.tick as ((t: number) => void) | undefined;
+          if (tick) ticks.push(tick);
+        });
         this.scene.add(outer);
         this.applyGlowTo(outer);
-        rec = { key, outer, entity: e };
+        rec = { key, outer, entity: e, ticks };
         this.records.set(e.id, rec);
       }
       rec.entity = e;
@@ -202,8 +289,17 @@ export class ThreeLayer implements CustomLayerInterface {
     this.map?.triggerRepaint();
   }
 
-  private updateHelper() {
+  /** Las geometrías del helper se crean en cada selección: hay que liberarlas antes de limpiar. */
+  private clearSelectionGeometries() {
+    this.selHelper.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      mesh.geometry?.dispose();
+    });
     this.selHelper.clear();
+  }
+
+  private updateHelper() {
+    this.clearSelectionGeometries();
     const rec = this.selected ? this.records.get(this.selected.id) : undefined;
     if (!rec) {
       this.selHelper.visible = false;
@@ -234,6 +330,55 @@ export class ThreeLayer implements CustomLayerInterface {
     this.selHelper.position.copy(rec.outer.position);
     this.selHelper.rotation.z = rec.outer.rotation.z;
     this.selHelper.visible = true;
+  }
+
+  /* ----------------------------------------- hover ----------------------------------------- */
+
+  /** Fija el pulso durante una órbita; el movimiento del puntero deja de alterarlo. */
+  setPulsePinned(ref: EntityRef | null) {
+    this.pulsePinned = ref;
+    if (ref) this.setHover(ref);
+  }
+
+  /** Entidad bajo el cursor: enciende o desplaza el indicador; `null` lo oculta. */
+  setHover(ref: EntityRef | null) {
+    if (this.hovered?.id === ref?.id) return;
+    this.hovered = ref;
+    const rec = ref ? this.records.get(ref.id) : undefined;
+    this.hoverHelper.visible = !!rec;
+    if (rec) {
+      const color = new THREE.Color(rec.entity.params.accentColor);
+      this.ringMat.color.copy(color);
+      this.rippleMat.color.copy(color);
+      this.haloMat.color.copy(color);
+      this.updateHover((performance.now() - this.t0) / 1000);
+    }
+    this.map?.triggerRepaint();
+  }
+
+  /** Anillo, onda y halo sobre el suelo, siguiendo a la entidad señalada. */
+  private updateHover(t: number) {
+    const rec = this.hovered ? this.records.get(this.hovered.id) : undefined;
+    if (!rec) {
+      this.setHover(null);
+      return;
+    }
+    const { x, y } = rec.outer.position;
+    this.ring.position.set(x, y, 0.04);
+    this.ripple.position.set(x, y, 0.04);
+    this.halo.position.set(x, y, 0.035);
+
+    const p: ModelParams = rec.entity.params;
+    const s = Math.max(p.width, p.depth) * rec.entity.placement.scale * 0.85 + 1.2;
+    this.ring.scale.setScalar(s);
+    this.halo.scale.setScalar(s * 2.4);
+
+    const pulse = (Math.sin(t * 3.2) + 1) / 2;
+    this.ringMat.opacity = 0.65 + pulse * 0.35;
+    const r = (t * 0.6) % 1;
+    this.ripple.scale.setScalar(this.ring.scale.x * (1 + r * 0.7));
+    this.rippleMat.opacity = (1 - r) * 0.7;
+    this.haloMat.opacity = 0.35 + pulse * 0.25;
   }
 
   /* ---------------------------------------- picking ---------------------------------------- */

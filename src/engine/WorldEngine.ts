@@ -18,6 +18,11 @@ import { ROAD_FILL_LAYERS, buildSky, buildStyle, themePaintUpdates } from './map
 import { placesGeoJson } from './places';
 import { ThreeLayer } from './ThreeLayer';
 
+/** Respeta la preferencia del sistema: los vuelos y la órbita se sustituyen por saltos. */
+export function prefersReducedMotion(): boolean {
+  return typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+}
+
 export type EditTool = 'select' | 'move' | 'rotate' | 'scale';
 export type PickKind = 'place' | 'building' | 'object';
 export interface PickResult {
@@ -25,13 +30,16 @@ export interface PickResult {
   id: string;
 }
 
+/** Referência transformável no STUDIO: pontos independentes e entidades 3D. */
+export type TransformRef = { kind: 'place'; id: string } | EntityRef;
+
 export interface EngineCallbacks {
   onPick: (hit: PickResult | null) => void;
   onView: (v: { bearing: number; pitch: number; zoom: number; center: LngLat }) => void;
   onReady: () => void;
   onMapError: () => void;
-  /** STUDIO: transformação em andamento (arraste). */
-  onTransform: (ref: EntityRef, patch: { position?: LngLat; heading?: number; scale?: number }) => void;
+  /** STUDIO: transformação em andamento (arraste de entidades 3D ou de pontos). */
+  onTransform: (ref: TransformRef, patch: { position?: LngLat; heading?: number; scale?: number }) => void;
   onGestureEnd: () => void;
 }
 
@@ -42,12 +50,16 @@ export interface EngineOptions {
   theme: string;
   places: Place[];
   initialView?: CameraView;
+  /** IDs cuyo marcador no se dibuja en esta instancia (filtro visual, nunca baja del documento). */
+  hiddenPlaceIds?: ReadonlySet<string>;
   callbacks: EngineCallbacks;
+  /** WORLD sin brújula no necesita el evento `move`; se desactiva para no calcular la vista por frame. */
+  emitView?: boolean;
 }
 
 interface DragState {
   type: 'move' | 'rotate' | 'scale';
-  ref: EntityRef;
+  ref: TransformRef;
   grab: { dLng: number; dLat: number };
   startPoint: Point;
   centerPoint: Point;
@@ -56,7 +68,7 @@ interface DragState {
   startAngle: number;
 }
 
-const MARKER_LAYERS = ['ent-pin', 'ent-label-biz', 'ent-label-plain', 'places-dot', 'places-label'];
+const MARKER_LAYERS = ['places-dot', 'places-label'];
 
 type FC = Parameters<GeoJSONSource['setData']>[0];
 const emptyFC = { type: 'FeatureCollection', features: [] } as FC;
@@ -106,6 +118,7 @@ export class WorldEngine {
       fadeDuration: 120,
     });
     (window as unknown as { __map?: MlMap }).__map = this.map;
+    // Créditos obligatorios de la cartografía, visibles sin abrir el panel «Acerca de».
     this.map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
     this.map.on('load', () => this.onLoad());
     this.map.on('error', (ev) => {
@@ -116,15 +129,31 @@ export class WorldEngine {
         opts.callbacks.onMapError();
       }
     });
-    this.map.on('move', () => this.emitView());
+    if (opts.emitView !== false) this.map.on('move', () => this.emitView());
     this.map.on('click', (e) => this.handleClick(e));
-    this.map.on('mousedown', (e) => this.dragStart(e));
-    this.map.on('touchstart', (e) => this.dragStart(e));
-    this.map.on('mousemove', (e) => this.pointerMove(e));
-    this.map.on('touchmove', (e) => this.pointerMove(e));
-    this.map.on('mouseup', () => this.dragEnd());
-    this.map.on('touchend', () => this.dragEnd());
-    this.map.on('touchcancel', () => this.dragEnd());
+
+    // El gesto ya hace repintar el mapa: la capa 3D no debe encolar frames extra.
+    const interacting = (v: boolean) => () => this.three.setInteracting(v);
+    this.map.on('touchstart', interacting(true));
+    this.map.on('touchmove', interacting(true));
+    this.map.on('touchend', interacting(false));
+    this.map.on('touchcancel', interacting(false));
+    this.map.on('dragend', interacting(false));
+
+    if (this.opts.mode === 'studio') {
+      // Estos listeners solo editan entidades en STUDIO; en WORLD no hay arrastre de modelos.
+      this.map.on('mousedown', (e) => this.dragStart(e));
+      this.map.on('touchstart', (e) => this.dragStart(e));
+      this.map.on('mousemove', (e) => this.pointerMove(e));
+      this.map.on('touchmove', (e) => this.pointerMove(e));
+      this.map.on('mouseup', () => this.dragEnd());
+      this.map.on('touchend', () => this.dragEnd());
+      this.map.on('touchcancel', () => this.dragEnd());
+    } else {
+      this.map.on('mousedown', interacting(true));
+      this.map.on('mouseup', interacting(false));
+      this.map.on('mouseout', interacting(false));
+    }
   }
 
   /* ----------------------------------------- carga ----------------------------------------- */
@@ -136,9 +165,8 @@ export class WorldEngine {
 
     m.addSource('places', {
       type: 'geojson',
-      data: placesGeoJson(this.places, placeColors) as FC,
+      data: placesGeoJson(this.places, placeColors, this.opts.hiddenPlaceIds) as FC,
     });
-    m.addSource('entities', { type: 'geojson', data: emptyFC });
     m.addSource('selection', { type: 'geojson', data: emptyFC });
     m.addSource('me', { type: 'geojson', data: emptyFC });
 
@@ -152,10 +180,15 @@ export class WorldEngine {
       source: 'places',
       minzoom: 13.5,
       paint: {
-        'circle-radius': ['interpolate', ['linear'], ['zoom'], 13.5, 3, 17, 5.5],
+        'circle-radius': [
+          'interpolate', ['linear'], ['zoom'],
+          13.5, ['*', 3, ['coalesce', ['get', 'size'], 1]],
+          17, ['*', 5.5, ['coalesce', ['get', 'size'], 1]],
+        ],
         'circle-color': ['get', 'color'],
         'circle-stroke-width': 2,
-        'circle-stroke-color': t.halo,
+        'circle-stroke-color': ['coalesce', ['get', 'strokeColor'], t.halo],
+        'circle-opacity': ['coalesce', ['get', 'opacity'], 1],
       },
     });
     m.addLayer({
@@ -164,59 +197,19 @@ export class WorldEngine {
       source: 'places',
       minzoom: 15.2,
       layout: {
-        'text-field': ['get', 'name'],
+        'text-field': ['coalesce', ['get', 'label'], ['get', 'name']],
         'text-font': ['Noto Sans Regular'],
         'text-size': 12,
         'text-anchor': 'top',
         'text-offset': [0, 0.8],
         'text-max-width': 8,
       },
-      paint: { 'text-color': t.text, 'text-halo-color': t.halo, 'text-halo-width': 1.6 },
-    });
-    m.addLayer({
-      id: 'ent-pin',
-      type: 'circle',
-      source: 'entities',
-      minzoom: 14.5,
-      filter: ['==', ['get', 'biz'], true],
       paint: {
-        'circle-radius': ['interpolate', ['linear'], ['zoom'], 14.5, 4, 19, 8],
-        'circle-color': ['get', 'color'],
-        'circle-stroke-width': 2.5,
-        'circle-stroke-color': '#ffffff',
+        'text-color': t.text,
+        'text-halo-color': t.halo,
+        'text-halo-width': 1.6,
+        'text-opacity': ['case', ['!=', ['get', 'showLabel'], false], 1, 0],
       },
-    });
-    m.addLayer({
-      id: 'ent-label-biz',
-      type: 'symbol',
-      source: 'entities',
-      minzoom: 15.6,
-      filter: ['==', ['get', 'biz'], true],
-      layout: {
-        'text-field': ['get', 'label'],
-        'text-font': ['Noto Sans Bold'],
-        'text-size': 12.5,
-        'text-anchor': 'bottom',
-        'text-offset': [0, -1.1],
-        'text-max-width': 9,
-      },
-      paint: { 'text-color': t.text, 'text-halo-color': t.halo, 'text-halo-width': 2 },
-    });
-    m.addLayer({
-      id: 'ent-label-plain',
-      type: 'symbol',
-      source: 'entities',
-      minzoom: 17.4,
-      filter: ['!=', ['get', 'biz'], true],
-      layout: {
-        'text-field': ['get', 'label'],
-        'text-font': ['Noto Sans Regular'],
-        'text-size': 11.5,
-        'text-anchor': 'bottom',
-        'text-offset': [0, -0.6],
-        'text-max-width': 9,
-      },
-      paint: { 'text-color': t.text, 'text-halo-color': t.halo, 'text-halo-width': 1.8, 'text-opacity': 0.85 },
     });
     m.addLayer({
       id: 'sel-glow',
@@ -256,7 +249,7 @@ export class WorldEngine {
     this.loaded = true;
     if (this.pending) this.setData(this.pending.doc, { showUnpublished: this.pending.showUnpublished });
     this.setSelection(this.selection);
-    this.emitView();
+    if (this.opts.emitView !== false) this.emitView();
     this.opts.callbacks.onReady();
   }
 
@@ -286,23 +279,6 @@ export class WorldEngine {
     all.forEach((e) => this.entities.set(e.id, e));
     this.three.sync(all, labelFor);
 
-    const features = doc.buildings
-      .filter((b) => b.visible)
-      .map((b) => {
-        const biz = bizByBuilding.get(b.id);
-        const extra = biz && biz.length > 1 ? ` +${biz.length - 1}` : '';
-        return {
-          type: 'Feature' as const,
-          geometry: { type: 'Point' as const, coordinates: [b.placement.position.lng, b.placement.position.lat] },
-          properties: {
-            id: b.id,
-            biz: !!biz?.length,
-            label: biz?.length ? biz[0].name + extra : b.name,
-            color: biz?.length ? biz[0].color : '#9fb4c7',
-          },
-        };
-      });
-    (this.map.getSource('entities') as GeoJSONSource).setData({ type: 'FeatureCollection', features });
     this.refreshSelectionMarker();
   }
 
@@ -310,8 +286,10 @@ export class WorldEngine {
   setPlaces(places: Place[]) {
     this.places = places;
     if (!this.loaded) return;
+    // `this.places` conserva la lista completa para selección y búsqueda; el filtro solo
+    // afecta a la fuente GeoJSON que dibuja los marcadores.
     (this.map.getSource('places') as GeoJSONSource).setData(
-      placesGeoJson(places, this.opts.visual.placeColors) as FC,
+      placesGeoJson(places, this.opts.visual.placeColors, this.opts.hiddenPlaceIds) as FC,
     );
     this.refreshSelectionMarker();
   }
@@ -327,11 +305,11 @@ export class WorldEngine {
       if (m.getLayer(layer)) m.setPaintProperty(layer, prop as never, value as never);
     }
     m.setSky(buildSky(t) as never);
-    for (const id of ['places-label', 'ent-label-biz', 'ent-label-plain']) {
+    for (const id of ['places-label']) {
       m.setPaintProperty(id, 'text-color', t.text);
       m.setPaintProperty(id, 'text-halo-color', t.halo);
     }
-    m.setPaintProperty('places-dot', 'circle-stroke-color', t.halo);
+    m.setPaintProperty('places-dot', 'circle-stroke-color', ['coalesce', ['get', 'strokeColor'], t.halo]);
     this.three.setTheme(t);
   }
 
@@ -344,8 +322,18 @@ export class WorldEngine {
   setSelection(sel: PickResult | null) {
     this.selection = sel;
     if (!this.loaded) return;
-    this.three.setSelection(sel && sel.kind !== 'place' ? { kind: sel.kind, id: sel.id } : null);
+    const ref = sel && sel.kind !== 'place' ? { kind: sel.kind, id: sel.id } : null;
+    this.three.setSelection(ref);
+    if (this.opts.mode === 'world') this.three.setHover(ref);
     this.refreshSelectionMarker();
+  }
+
+  /** Mantiene el pulso de la selección fijo mientras dura una secuencia de cámara (órbita). */
+  pinSelectionPulse(pinned: boolean) {
+    if (!this.loaded) return;
+    const sel = this.selection;
+    const ref = pinned && sel && sel.kind !== 'place' ? { kind: sel.kind, id: sel.id } : null;
+    this.three.setPulsePinned(ref);
   }
 
   private refreshSelectionMarker() {
@@ -353,7 +341,7 @@ export class WorldEngine {
     const src = this.map.getSource('selection') as GeoJSONSource;
     const pos = this.selectionPosition();
     // No STUDIO o contorno 3D cuida das entidades; pontos usam o mesmo anel do WORLD.
-    if (!pos || (this.opts.mode === 'studio' && this.selection?.kind !== 'place')) {
+    if (!pos || this.selection?.kind !== 'place') {
       src.setData(emptyFC);
       return;
     }
@@ -388,27 +376,35 @@ export class WorldEngine {
   }
 
   setPerspective(mode: '2d' | '3d') {
-    this.map.easeTo({ pitch: mode === '3d' ? this.opts.visual.pitch3d : 0, duration: 800 });
+    this.map.easeTo({ pitch: mode === '3d' ? this.opts.visual.pitch3d : 0, duration: prefersReducedMotion() ? 0 : 800 });
   }
 
   resetNorth() {
-    this.map.easeTo({ bearing: 0, duration: 600 });
+    this.map.easeTo({ bearing: 0, duration: prefersReducedMotion() ? 0 : 600 });
   }
 
   goHome() {
     const h = this.opts.visual.home;
-    this.map.flyTo({ center: h.center, zoom: h.zoom, pitch: this.map.getPitch() > 10 ? h.pitch : 0, bearing: h.bearing, duration: 1800, essential: true });
+    const target = { center: h.center, zoom: h.zoom, pitch: this.map.getPitch() > 10 ? h.pitch : 0, bearing: h.bearing };
+    if (prefersReducedMotion()) this.map.jumpTo(target);
+    else this.map.flyTo({ ...target, duration: 1800, essential: true });
   }
 
   /** Voo de abertura: do alto até a vista inicial em perspectiva. */
   intro() {
     const h = this.opts.visual.home;
+    if (prefersReducedMotion()) {
+      this.map.jumpTo({ center: h.center, zoom: h.zoom, pitch: h.pitch, bearing: h.bearing });
+      return;
+    }
     this.map.jumpTo({ center: h.center, zoom: h.zoom - 2.2, pitch: 0, bearing: 0 });
     this.map.flyTo({ center: h.center, zoom: h.zoom, pitch: h.pitch, bearing: h.bearing, duration: 3200, curve: 1.2, essential: true });
   }
 
   flyToPoint(p: LngLat, zoom = 18) {
-    this.map.flyTo({ center: [p.lng, p.lat], zoom: Math.max(this.map.getZoom(), zoom), duration: 1400, essential: true });
+    const target = { center: [p.lng, p.lat] as [number, number], zoom: Math.max(this.map.getZoom(), zoom) };
+    if (prefersReducedMotion()) this.map.jumpTo(target);
+    else this.map.flyTo({ ...target, duration: 1400, essential: true });
   }
 
   /** Geolocalização do dispositivo. Mostra o ponto apenas se estiver dentro da área do mapa. */
@@ -443,6 +439,9 @@ export class WorldEngine {
   }
 
   destroy() {
+    if ((window as unknown as { __map?: MlMap }).__map === this.map) {
+      delete (window as unknown as { __map?: MlMap }).__map;
+    }
     this.map.remove();
   }
 
@@ -485,9 +484,33 @@ export class WorldEngine {
   private dragMoved = false;
 
   private dragStart(e: MapMouseEvent | MapTouchEvent) {
-    if (this.opts.mode !== 'studio' || this.tool === 'select' || !this.selection || this.selection.kind === 'place') return;
+    if (this.opts.mode !== 'studio' || this.tool === 'select' || !this.selection) return;
     if ('points' in e && e.points.length > 1) return;
-    const ent = this.entities.get(this.selection.id);
+    const sel = this.selection;
+    if (sel.kind === 'place') {
+      // Pontos só se movem com a ferramenta "mover"; o marcador é um círculo, sem rotação/escala.
+      if (this.tool !== 'move') return;
+      const place = this.places.find((p) => p.id === sel.id);
+      if (!place) return;
+      const screen = this.map.project([place.position.lng, place.position.lat]);
+      if (Math.hypot(e.point.x - screen.x, e.point.y - screen.y) > 18) return;
+      e.preventDefault();
+      this.map.dragPan.disable();
+      this.map.touchZoomRotate.disable();
+      this.dragMoved = false;
+      this.drag = {
+        type: 'move',
+        ref: { kind: 'place', id: place.id },
+        grab: { dLng: e.lngLat.lng - place.position.lng, dLat: e.lngLat.lat - place.position.lat },
+        startPoint: e.point,
+        centerPoint: screen,
+        startHeading: 0,
+        startScale: 1,
+        startAngle: 0,
+      };
+      return;
+    }
+    const ent = this.entities.get(sel.id);
     if (!ent) return;
     const near = distanceMeters(e.lngLat, ent.placement.position) <= this.three.radiusOf(ent) + 2.5;
     const hit = this.three.pick(e.point);
