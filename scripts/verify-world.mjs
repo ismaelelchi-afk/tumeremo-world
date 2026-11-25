@@ -22,6 +22,7 @@ import { existsSync, statSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { validateGlbBuffer } from './glb-integrity.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
@@ -401,6 +402,8 @@ function validateWorld(world) {
 
       const decoded = decodeGlb(bundle.glb, `${label}.glb`, errors);
       if (!decoded) return;
+
+      validateGlbBuffer(decoded, `${label}.glb`, errors);
 
       if (!Number.isSafeInteger(bundle.size) || bundle.size <= 0) {
         errors.push(`${label}.size debe ser un entero > 0 (valor: ${display(bundle.size)}).`);

@@ -17,6 +17,7 @@ import { existsSync } from 'node:fs';
 import { readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { validateGlbBuffer } from './glb-integrity.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.resolve(HERE, '..', 'data');
@@ -263,16 +264,8 @@ function checkBundle(bundle, index, errors, warnings) {
           errors.push(`${label}.hash debe tener 64 hex (SHA-256) o 16 hex (fallback heredado): ${hash}.`);
         }
       }
-      if (decoded.length >= 12) {
-        const magic = decoded.readUInt32LE(0);
-        const version = decoded.readUInt32LE(4);
-        const declared = decoded.readUInt32LE(8);
-        if (magic !== 0x46546c67 || version !== 2 || declared !== decoded.length) {
-          warnings.push(`${label}.glb no parece un GLB 2.0 coherente (magic/versión/longitud); se conserva tal cual.`);
-        }
-      } else {
-        warnings.push(`${label}.glb es demasiado corto para verificar la cabecera GLB; se conserva tal cual.`);
-      }
+      // Misma validación que el importador de STUDIO: cabecera, chunks y URIs externas.
+      validateGlbBuffer(decoded, `${label}.glb`, errors);
     }
   }
   return { id: typeof bundle.id === 'string' ? bundle.id : null, aliases: Array.isArray(aliases) ? aliases : [] };
