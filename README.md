@@ -93,22 +93,26 @@ El servidor de desarrollo se inicia en `http://localhost:5175` y escucha en `0.0
 
 | Comando | Descripción |
 | --- | --- |
-| `npm run dev` | Inicia el servidor de desarrollo. |
-| `npm run build` | Genera el build de producción en `dist/`. |
-| `npm run preview` | Sirve localmente el contenido de `dist/`. |
+| `npm run dev` | Inicia el servidor de desarrollo. STUDIO privado en `/studio.html`. |
+| `npm run prepare:world -- <export.json>` | Valida el export de STUDIO y genera `data/world.public.json`. |
+| `npm run verify:world` | Verifica el mundo publicado (o informa del bloqueo si falta el export). |
+| `npm run build` / `npm run build:public` | Genera `dist-public/index.html`: WORLD de solo lectura, sin editor. |
+| `npm run build:studio` | Genera `dist-studio/studio.html` + `_headers`: STUDIO privado. |
+| `npm run check:all` | Typecheck + verificación del mundo + ambos builds. |
 | `npm run typecheck` | Comprueba TypeScript sin emitir archivos. |
-| `npm run check` | Ejecuta la comprobación de tipos y el build. |
+| `npm run preview` | Sirve localmente el contenido de `dist/`. |
 
 ## Rutas
 
 | Ruta | Modo |
 | --- | --- |
-| `/` | WORLD |
-| `/studio.html` | STUDIO (servidor de desarrollo) |
-| `/#/studio` | STUDIO (build de archivo único) |
-| `/#/item/<kind>/<id>` | WORLD: selección compartible (restaura cámara) |
+| `/` (desarrollo) | WORLD público de solo lectura, alimentado por `data/world.public.json`. |
+| `/studio.html` (desarrollo/artefacto privado) | STUDIO privado: borrador local, export/import y herramientas. |
+| `/#/item/<kind>/<id>` | WORLD: selección compartible (restaura cámara). |
 
-El build de producción genera un único `dist/index.html` que contiene ambas experiencias. El modo se decide por la ruta o por el fragmento `#/studio`.
+El artefacto público `dist-public/index.html` **no contiene STUDIO**, no importa el editor y no escribe en `localStorage`/IndexedDB. `#/studio` no abre nada en producción. El STUDIO se publica por separado en otro host, protegido por autenticación real en el borde (Cloudflare Access); consulta `cloudflare/README.md`.
+
+> El build público falla a propósito si no existe `data/world.public.json`: nunca se generan datos vacíos ni se sustituye el mundo editado por la semilla.
 
 ## Estructura del proyecto
 

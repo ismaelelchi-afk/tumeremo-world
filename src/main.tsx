@@ -1,18 +1,17 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
-import App from './App';
 import { LanguageProvider } from './i18n';
-import { documentStore } from './core/store';
-import { initCustomModels } from './data/customModels';
+import { PUBLIC_DOCUMENT } from './core/publicDocument';
+import { installPublicModels } from './data/publicModels';
+import { WorldCityView } from './apps/world/WorldCityView';
 
-/** Entrada principal: index.html (WORLD). O STUDIO abre em `#/studio` (ou em studio.html no servidor de desenvolvimento). */
-void initCustomModels().then(() => documentStore.init()).then(() => {
-  createRoot(document.getElementById('root')!).render(
-    <StrictMode>
-      <LanguageProvider>
-        <App />
-      </LanguageProvider>
-    </StrictMode>,
-  );
-});
+installPublicModels();
+
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <LanguageProvider>
+      <WorldCityView doc={PUBLIC_DOCUMENT} studioHref={null} draftChip={null} />
+    </LanguageProvider>
+  </StrictMode>,
+);

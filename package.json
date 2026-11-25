@@ -19,10 +19,18 @@
   },
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 5175 --strictPort",
-    "build": "vite build",
+    "build": "npm run build:public",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "check": "npm run typecheck && npm run build"
+    "check": "npm run typecheck && npm run build",
+    "build:public": "vite build --config vite.public.config.ts --mode public",
+    "build:studio": "vite build --config vite.studio.config.ts --mode studio",
+    "prepare:world": "node scripts/prepare-public-world.mjs",
+    "verify:world": "node scripts/verify-world.mjs",
+    "verify:bundle": "node scripts/verify-bundle.mjs",
+    "check:all": "npm run typecheck && npm run verify:world && npm run build:public && npm run build:studio && npm run verify:bundle -- dist-public && npm run verify:bundle -- dist-studio",
+    "deploy:public": "node scripts/deploy-cloudflare.mjs public",
+    "deploy:studio": "node scripts/deploy-cloudflare.mjs studio"
   },
   "dependencies": {
     "clsx": "2.1.1",

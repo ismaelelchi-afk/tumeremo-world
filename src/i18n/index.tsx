@@ -38,17 +38,16 @@ const Ctx = createContext<I18n | null>(null);
 const fallbackApi = createApi(getLang());
 
 /**
- * Proveedor global. Vive por encima de WORLD y STUDIO, por lo que un cambio de idioma se
- * propaga a las dos experiencias sin recargar y se conserva en `localStorage`.
+ * Proveedor global. Vive por encima de WORLD y STUDIO; el cambio de idioma se propaga a
+ * las dos experiencias sin recargar. La descripción de STUDIO la fija `App.tsx` en la
+ * entrada privada, así que aquí no se detecta ninguna ruta del editor.
  */
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const lang = useSyncExternalStore(subscribeLang, getLang, getLang);
 
   useEffect(() => {
     document.documentElement.lang = lang;
-    const studio = /studio(\.html)?\/?$/.test(location.pathname) || location.hash.startsWith('#/studio');
-    const descriptionKey = studio ? 'app.studioDescription' : 'app.description';
-    document.querySelector('meta[name="description"]')?.setAttribute('content', translate(descriptionKey, lang));
+    document.querySelector('meta[name="description"]')?.setAttribute('content', translate('app.description', lang));
   }, [lang]);
 
   const api = useMemo(() => createApi(lang), [lang]);
