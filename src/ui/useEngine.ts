@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import visualJson from '../data/visual.json';
-import { SEED_PLACES } from '../core/repository';
-import type { CameraView, VisualConfig } from '../core/types';
+import placesJson from '../data/places.json';
+import type { CameraView, Place, VisualConfig } from '../core/types';
 import { WorldEngine, type EngineCallbacks } from '../engine/WorldEngine';
 
 export const VISUAL = visualJson as unknown as VisualConfig;
 /** Valor inicial del motor; la fuente verdadera es `doc.places` (ver `WorldEngine.setData`). */
-export const PLACES = SEED_PLACES;
+export const PLACES: Place[] = placesJson as unknown as Place[];
 
 /** Cria/destrói o motor ligado a um <div>. Os callbacks são lidos sempre da versão mais recente. */
 export function useEngine(

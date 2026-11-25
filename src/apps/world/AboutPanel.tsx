@@ -23,7 +23,7 @@ export function AboutPanel({
   ui,
 }: {
   onClose: () => void;
-  studioHref: string;
+  studioHref?: string | null;
   ui?: UiTheme;
 }) {
   const { lang, t } = useI18n();
@@ -90,9 +90,11 @@ export function AboutPanel({
           <a className={`${linkBase} ${neutralLink}`} href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">
             {t('about.openStreetMap')} <Icon name="external" size={14} />
           </a>
-          <a className={`${linkBase} border-transparent bg-[#0b3b2e] text-white hover:bg-[#0f4d3c]`} href={studioHref}>
-            {t('about.openStudio')}
-          </a>
+          {typeof studioHref === 'string' && studioHref.length > 0 && (
+            <a className={`${linkBase} border-transparent bg-[#0b3b2e] text-white hover:bg-[#0f4d3c]`} href={studioHref}>
+              {t('about.openStudio')}
+            </a>
+          )}
         </div>
       </div>
     </div>

@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import maplibregl from 'maplibre-gl';
 import type { GeoJSONSource, Map as MlMap, MapMouseEvent, MapTouchEvent, Point } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -117,7 +118,10 @@ export class WorldEngine {
       canvasContextAttributes: { antialias: true },
       fadeDuration: 120,
     });
-    (window as unknown as { __map?: MlMap }).__map = this.map;
+    // El bundle público es de solo lectura: no expone el mapa como global de depuración.
+    if (import.meta.env.MODE !== 'public') {
+      (window as unknown as { __map?: MlMap }).__map = this.map;
+    }
     // Créditos obligatorios de la cartografía, visibles sin abrir el panel «Acerca de».
     this.map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
     this.map.on('load', () => this.onLoad());
@@ -478,6 +482,8 @@ export class WorldEngine {
   /* --------------------------------- edição (STUDIO) --------------------------------- */
 
   setTool(tool: EditTool) {
+    // Solo STUDIO activa herramientas de edición; el WORLD público ignora el cambio.
+    if (this.opts.mode !== 'studio') return;
     this.tool = tool;
   }
 

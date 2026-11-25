@@ -4,6 +4,8 @@ jspm_packages/
 
 # Salidas de compilación
 dist/
+dist-public/
+dist-studio/
 build/
 out/
 *.tsbuildinfo
