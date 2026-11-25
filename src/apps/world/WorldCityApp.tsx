@@ -1,8 +1,8 @@
 /**
  * Evolución de WORLD inspirada en Tumeremo-3D (cabecera, buscador, categorías,
  * directorio y controles) sobre el motor real de Tumeremo World. No sustituye a
- * `WorldApp`: el STUDIO sigue usándolo como vista previa. Aquí solo se cambia la
- * rama pública en `App.tsx`.
+ * `WorldApp`: el STUDIO ya no lo usa como vista previa; orbita y edita en el editor.
+ * Aquí solo se cambia la rama pública en `App.tsx`.
  *
  * Los tres edificios oficiales forman parte del WorldDocument compartido: WORLD lo
  * consume directamente, sin copias aumentadas ni duplicados.

@@ -13,6 +13,7 @@ interface Props {
   onSwapModel: (modelId: string) => void;
   onAlign: () => void;
   onTestOrbit: () => void;
+  orbiting: boolean;
   onDuplicate: () => void;
   onDelete: () => void;
   onLinkBusiness: (businessId: string, buildingId: string | null) => void;
@@ -93,7 +94,12 @@ export function PropsTab(p: Props) {
         <button className="btn btn-sm w-full" onClick={p.onAlign}>
           <Icon name="road" size={16} /> {t('props.alignFacade')}
         </button>
-        <button className="btn btn-sm w-full" onClick={p.onTestOrbit}>
+        <button
+          className="btn btn-sm w-full"
+          onClick={p.onTestOrbit}
+          aria-pressed={p.orbiting}
+          style={p.orbiting ? { borderColor: 'var(--accent)', color: 'var(--accent)' } : undefined}
+        >
           <Icon name="rotate" size={16} /> {t('props.testOrbit')}
         </button>
         <Slider label={t('props.scale')} value={e.placement.scale} min={0.3} max={4} step={0.05} unit="×" onChange={(v) => p.onPlacement({ scale: v }, k + 'scale')} />

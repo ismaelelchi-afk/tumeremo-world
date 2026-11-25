@@ -12,7 +12,7 @@ import { Icon, LogoMark, type IconName } from '../../ui/Icon';
 import { LanguageSwitch } from '../../ui/LanguageSwitch';
 import { Toast, useToast } from '../../ui/Toast';
 import { VISUAL, useEngine } from '../../ui/useEngine';
-import { WorldApp } from '../world/WorldApp';
+import { useWorldCamera } from '../world/useWorldCamera';
 import { AnimationPanel } from './AnimationPanel';
 import { BusinessTab } from './BusinessTab';
 import {
@@ -48,44 +48,9 @@ type PendingConfirm =
 
 const STUDIO_VIEW: CameraView = { ...VISUAL.home, zoom: 17.4, pitch: 45 };
 
-/**
- * STUDIO = editor + pré-visualização. O editor permanece montado (o motor é pausado)
- * para que aba, seleção, ferramenta e tema voltem exatamente como estavam.
- */
+/** STUDIO = editor. El motor permanece siempre activo y los cambios se ven en vivo. */
 export function StudioApp() {
-  const [preview, setPreview] = useState<{ doc: WorldDocument; orbit?: EntityRef } | null>(null);
-  const [initialView, setInitialView] = useState<CameraView>(STUDIO_VIEW);
-
-  return (
-    <>
-      <StudioEditor
-        active={!preview}
-        initialView={initialView}
-        onView={setInitialView}
-        onPreview={(v) => {
-          setInitialView(v);
-          setPreview({ doc: documentStore.getState().doc });
-        }}
-        onPreviewOrbit={(v, ref) => {
-          setInitialView(v);
-          setPreview({ doc: documentStore.getState().doc, orbit: ref });
-        }}
-      />
-      {preview && (
-        <div className="fixed inset-0 z-[60]">
-          <WorldApp
-            preview={{
-              doc: preview.doc,
-              showUnpublished: true,
-              onExit: () => setPreview(null),
-              initialView,
-              orbit: preview.orbit,
-            }}
-          />
-        </div>
-      )}
-    </>
-  );
+  return <StudioEditor />;
 }
 
 const TABS: Array<[Tab, TranslationKey, IconName]> = [
@@ -103,19 +68,7 @@ const TOOLS: Array<[EditTool, TranslationKey, IconName, TranslationKey]> = [
   ['scale', 'studio.tool.scale', 'scale', 'studio.tool.scaleHint'],
 ];
 
-function StudioEditor({
-  active,
-  initialView,
-  onView,
-  onPreview,
-  onPreviewOrbit,
-}: {
-  active: boolean;
-  initialView: CameraView;
-  onView: (v: CameraView) => void;
-  onPreview: (v: CameraView) => void;
-  onPreviewOrbit: (v: CameraView, ref: EntityRef) => void;
-}) {
+function StudioEditor() {
   const state = useDocumentState();
   const doc = state.doc;
   const toast = useToast();
@@ -128,7 +81,7 @@ function StudioEditor({
   const [editingBiz, setEditingBiz] = useState<string | null>(null);
   const [theme, setTheme] = useState('dia');
   const [bearing, setBearing] = useState(0);
-  const [pitch, setPitch] = useState(initialView.pitch);
+  const [pitch, setPitch] = useState(STUDIO_VIEW.pitch);
   const [menu, setMenu] = useState(false);
   const [animOpen, setAnimOpen] = useState(false);
   const [pending, setPending] = useState<PendingConfirm>(null);
@@ -185,7 +138,6 @@ function StudioEditor({
       onView: (v) => {
         setBearing(v.bearing);
         setPitch(v.pitch);
-        onView({ center: [v.center.lng, v.center.lat], zoom: v.zoom, pitch: v.pitch, bearing: v.bearing });
       },
       onReady: () => {},
       onMapError: () => toast.show(t('world.mapError'), 6000),
@@ -201,9 +153,16 @@ function StudioEditor({
       },
       onGestureEnd: () => documentStore.breakCoalesce(),
     },
-    initialView,
-    { enabled: active },
+    STUDIO_VIEW,
   );
+
+  const { startOrbit, stopOrbit, orbiting } = useWorldCamera(engine, doc, window.matchMedia('(min-width: 1024px)').matches);
+
+  // Cambiar la selección desde la escena o desde el editor cancela la órbita en curso.
+  useEffect(() => {
+    stopOrbit();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sel?.kind, sel?.id, stopOrbit]);
 
   useEffect(() => {
     engine?.setData(doc, { showUnpublished: true });
@@ -558,10 +517,6 @@ function StudioEditor({
         <button className="fab !h-11 !w-11" onClick={() => documentStore.redo()} disabled={!state.future.length} style={{ opacity: state.future.length ? 1 : 0.35 }} aria-label={t('common.redo')} title={t('common.redoTitle')}>
           <Icon name="redo" size={19} />
         </button>
-        <button className="btn btn-primary !min-h-11 !rounded-full" onClick={() => engine && onPreview(engine.getView())}>
-          <Icon name="play" size={16} /> <span className="hidden sm:inline">{t('studio.preview')}</span>
-          <span className="sm:hidden">{t('studio.previewShort')}</span>
-        </button>
         <div className="relative">
           <button className="fab !h-11 !w-11" onClick={() => setMenu((m) => !m)} aria-label={t('studio.menuAria')} aria-expanded={menu}>
             <Icon name="menu" size={20} />
@@ -741,7 +696,8 @@ function StudioEditor({
                 onPlacement={(patch, key) => sel && update((d) => patchEntity(d, sel, { placement: patch }), key)}
                 onSwapModel={swapModel}
                 onAlign={alignSelected}
-                onTestOrbit={() => sel && onPreviewOrbit(engine?.getView() ?? STUDIO_VIEW, sel)}
+                onTestOrbit={() => sel && startOrbit(sel)}
+                orbiting={orbiting}
                 onDuplicate={duplicateSelected}
                 onDelete={deleteSelected}
                 onLinkBusiness={(id, bid) => update((d) => patchBusiness(d, id, { buildingId: bid }))}

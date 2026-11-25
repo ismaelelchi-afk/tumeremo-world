@@ -1,6 +1,6 @@
 /**
- * Sistema orbital único de Tumeremo World, compartido por WORLD y por la vista previa
- * del STUDIO. El estado, el bucle, la guardia de gestos y el encuadre viven aquí:
+ * Sistema orbital único de Tumeremo World, compartido por WORLD y por la órbita del
+ * editor STUDIO. El estado, el bucle, la guardia de gestos y el encuadre viven aquí:
  * ningún consumidor crea una segunda cámara orbital.
  *
  * Las coordenadas, la geometría y los estilos no se tocan: solo se mueve la cámara
@@ -144,7 +144,7 @@ export function useWorldCamera(engine: WorldEngine | null, doc: WorldDocument, i
       cancelFocus();
       const p = selectionPoint(doc, ref);
       if (!p) return;
-      // Un único cálculo de encuadre compartido con WORLD y con la vista previa del STUDIO.
+      // Un único cálculo de encuadre compartido con WORLD y con el editor STUDIO.
       const view = computeFocusView({
         doc,
         ref,
