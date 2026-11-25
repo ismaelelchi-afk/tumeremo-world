@@ -3,16 +3,16 @@ import { documentStore, useDocumentState } from '../../core/store';
 import { WorldCityView } from './WorldCityView';
 
 /**
- * Envoltorio privado: usa el borrador del store y las preferencias guardadas.
- * `privateView` habilita `/usuario`; la vista pública no importa este archivo.
+ * Vista privada de `/usuario`: el mismo borrador y los mismos GLB que STUDIO,
+ * con elementos no publicados. La entrada pública no importa este archivo.
  */
-export function WorldCityApp({ privateView = false }: { privateView?: boolean }) {
+export function WorldCityApp() {
   const state = useDocumentState();
   return (
     <WorldCityView
       doc={state.doc}
-      studioHref={privateView ? '/studio.html' : '#/studio'}
-      showUnpublished={privateView}
+      studioHref="/studio.html"
+      showUnpublished
       initialTheme={loadTheme()}
       onThemeChange={saveTheme}
       draftChip={

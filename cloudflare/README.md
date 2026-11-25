@@ -16,11 +16,11 @@ el dashboard de Cloudflare (el usuario decide los nombres):
 
 ## Por qué STUDIO necesita su propio host
 
-`#/studio` es un *fragmento* del navegador: **no se envía al servidor**. Cloudflare (y por tanto
-Cloudflare Access) solo ve la ruta real de la petición, que es `/`. No se puede proteger `#/studio`
-con una regla de Access. Por eso Access debe proteger **una ruta o un host real**, p. ej. un host
-dedicado de STUDIO (el usuario elige el nombre, por ejemplo `studio.<dominio>`), con una política
-de Access sobre ese host. No publicar STUDIO en el mismo host público.
+STUDIO y USUARIO usan rutas reales: `/studio.html` y `/usuario`. Cloudflare Access las ve y puede
+protegerlas en el borde; por eso debe configurarse sobre **un host privado dedicado** (el usuario
+elige el nombre, por ejemplo `studio.<dominio>`). No publicar `dist-studio` en el host público.
+No hay alias `#/studio`, `#editor`, `/studio` ni `/usuario/editor`: el primero es un fragmento sin
+lógica y los demás no forman parte de la arquitectura.
 
 ## Datos y secretos que debe proporcionar el usuario
 
@@ -62,7 +62,7 @@ npm run deploy:studio   # sube dist-studio/ al proyecto Pages privado
 Cada build genera un único HTML autocontenido:
 
 - `build:public` → `dist-public/index.html` (define inyectado con el documento y los modelos públicos).
-- `build:studio` → `dist-studio/studio.html`, `_headers` (copiado desde `cloudflare/_headers.studio`) y `_redirects` (copiado desde `cloudflare/_redirects.studio`), que sirve `/usuario` con el HTML privado.
+- `build:studio` → `dist-studio/studio.html`, `_headers` (copiado desde `cloudflare/_headers.studio`) y `_redirects` (copiado desde `cloudflare/_redirects.studio`): `/usuario` se sirve con el HTML privado y las rutas no oficiales devuelven 404.
 
 `_headers` envía `Cache-Control: no-store` y cabeceras de endurecimiento para STUDIO; **no**
 sustituye a la política de Access, que se configura en el dashboard sobre el host real.

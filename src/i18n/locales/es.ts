@@ -51,7 +51,6 @@ export const es = {
   /* ------------------------------------------------------------------ world */
   'world.aboutAria': 'Acerca de TUMEREMO WORLD',
   'world.backToStudio': 'Volver al STUDIO',
-  'world.previewChip': 'Vista previa del WORLD con tus datos locales',
   'world.draftChip': 'Borrador local del STUDIO · ver original',
   'world.draftTitle': 'Mostrar la versión original, sin las ediciones locales del STUDIO',
   'world.originalChip': 'Versión original · volver al borrador',
@@ -60,13 +59,10 @@ export const es = {
   'world.locateAria': 'Mi ubicación',
   'world.themeToDay': 'Cambiar al modo día',
   'world.themeToNight': 'Cambiar al modo noche',
-  'world.searchCta': 'Explorar Tumeremo…',
   'world.mapError': 'No se pudo cargar parte del mapa. Revisa tu conexión.',
   'world.locationDenied': 'Permiso de ubicación denegado.',
   'world.locationUnsupported': 'Este dispositivo no admite geolocalización.',
   'world.locationOutside': 'Estás fuera del área mapeada de Tumeremo.',
-  'world.coordsCopied': 'Coordenadas copiadas.',
-  'world.copyFailed': 'No se pudo copiar.',
 
   /* ---------------------------------------------------------- storage/recovery */
   'storage.saveFailed': 'No se pudo guardar en este dispositivo. Revisa el espacio disponible.',
@@ -159,11 +155,8 @@ export const es = {
     'Pocos edificios están mapeados en OSM (≈30 polígonos en la región medida). Por eso las casas reales casi no aparecen en 3D.',
 
   /* ---------------------------------------------------------------- explore */
-  'explore.aria': 'Explorar Tumeremo',
-  'explore.close': 'Cerrar',
   'explore.placeholder': 'Buscar lugares, comercios…',
   'explore.searchAria': 'Buscar',
-  'explore.closeSearch': 'Cerrar búsqueda',
   'explore.all': 'Todo',
   'explore.places': 'Lugares',
   'explore.business': 'Comercios',
@@ -176,22 +169,8 @@ export const es = {
   'explore.buildingPlain': 'Construcción digital',
 
   /* ------------------------------------------------------------------- info */
-  'info.closePanel': 'Cerrar panel',
-  'info.realPlace': 'Lugar real',
   'info.osmSource': 'Fuente: OpenStreetMap (punto de interés). Aún sin descripción verificada.',
-  'info.copyCoords': 'Copiar coordenadas',
-  'info.viewOsm': 'Ver en OSM',
-  'info.buildingMissing': 'Construcción no encontrada.',
-  'info.demo': 'Demostración',
   'info.digitalBuilding': 'Construcción digital',
-  'info.dimensions': '{w} × {d} m · {h} m de altura',
-  'info.businessesHere': 'Comercios aquí',
-  'info.noBusinesses': 'Ningún comercio publicado en este edificio.',
-  'info.digitalNote': 'Esta construcción es digital: no altera las calles ni los datos del mapa real.',
-  'info.businessMissing': 'Comercio no encontrado.',
-  'info.demoProfile': '· Perfil de demostración',
-  'info.noContact': 'Sin datos de contacto registrados.',
-  'info.viewBuilding': 'Ver edificio: {name}',
 
   /* ----------------------------------------------------------------- studio */
   'studio.library': 'Biblioteca',
@@ -219,6 +198,7 @@ export const es = {
   'studio.menuClose': 'Cerrar menú',
   'studio.menuSave': 'Guardar ahora',
   'studio.menuExport': 'Exportar JSON',
+  'studio.menuUpdateWorld': 'Actualizar WORLD',
   'studio.menuImport': 'Importar JSON',
   'studio.menuNight': 'Mapa en modo noche',
   'studio.menuDay': 'Mapa en modo día',
@@ -226,6 +206,8 @@ export const es = {
   'studio.menuOpenWorld': 'Abrir WORLD en una pestaña nueva',
   'studio.menuRestore': 'Restaurar versión original',
   'studio.toastSaved': 'Guardado en este dispositivo.',
+  'studio.worldUpdated': 'WORLD local actualizado: {buildings} construcciones, {businesses} comercios, {places} puntos.',
+  'studio.worldUpdateError': 'No se pudo actualizar WORLD: {error}',
   'studio.exportError': 'No se pudieron exportar los modelos 3D de este proyecto.',
   'studio.importModels': '{n} modelo(s) 3D importado(s)',
   'studio.importReused': '{n} modelo(s) 3D reutilizado(s)',

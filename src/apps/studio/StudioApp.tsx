@@ -403,6 +403,47 @@ function StudioEditor() {
     else showToast(t('studio.saveError'), 6000);
   }, [showToast, t]);
 
+  const updatingWorld = useRef(false);
+
+  /**
+   * Publicación local: usa el documento en memoria tal cual, sin Guardar, sin tocar
+   * localStorage/IndexedDB y sin despliegue. El servidor de desarrollo valida y
+   * escribe data/world.public.json con el mismo generador del build público.
+   */
+  const updateWorld = useCallback(async () => {
+    if (updatingWorld.current) return;
+    updatingWorld.current = true;
+    try {
+      const body = await exportDocumentJson(documentStore.getState().doc);
+      const response = await fetch('/__local-world/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+      });
+      const result: unknown = await response.json().catch(() => null);
+      const data = result as { ok?: boolean; counts?: Record<string, number>; error?: string } | null;
+      if (!response.ok || !data?.ok) {
+        throw new Error(data?.error || `HTTP ${response.status}`);
+      }
+      const counts = data.counts ?? {};
+      showToast(
+        t('studio.worldUpdated', {
+          buildings: counts.buildings ?? 0,
+          businesses: counts.businesses ?? 0,
+          places: counts.places ?? 0,
+        }),
+        5000,
+      );
+    } catch (error) {
+      showToast(
+        t('studio.worldUpdateError', { error: error instanceof Error ? error.message : String(error) }),
+        6000,
+      );
+    } finally {
+      updatingWorld.current = false;
+    }
+  }, [showToast, t]);
+
   /* ---------------------------------- teclado ---------------------------------- */
 
   useEffect(() => {
@@ -524,6 +565,7 @@ function StudioEditor() {
               <div role="menu" aria-label={t('studio.menuAria')} className="glass rise absolute right-0 top-12 z-50 w-[250px] rounded-2xl p-1.5" style={{ background: 'var(--panel-solid)' }}>
                 <MenuItem icon="save" label={t('studio.menuSave')} onClick={() => { void save(); setMenu(false); }} />
                 <MenuItem icon="download" label={t('studio.menuExport')} onClick={exportJson} />
+                <MenuItem icon="layers" label={t('studio.menuUpdateWorld')} onClick={() => { void updateWorld(); setMenu(false); }} />
                 <MenuItem icon="upload" label={t('studio.menuImport')} onClick={() => fileInput.current?.click()} />
                 <MenuItem icon={theme === 'dia' ? 'moon' : 'sun'} label={theme === 'dia' ? t('studio.menuNight') : t('studio.menuDay')} onClick={() => { setTheme(theme === 'dia' ? 'noite' : 'dia'); setMenu(false); }} />
                 <a role="menuitem" className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-[13.5px] font-semibold hover:bg-white/5" href="/usuario" onClick={() => setMenu(false)}>

@@ -11,7 +11,7 @@ El mapa base procede de datos abiertos de OpenStreetMap servidos por OpenFreeMap
 
 ### WORLD
 
-Vista de consulta del mundo digital: mapa real en 2D o 3D, edificios y objetos ubicados en el territorio, puntos de interés y comercios. Incluye búsqueda con filtros, fichas informativas, temas día/noche, geolocalización y panel de atribuciones. El WORLD muestra únicamente el contenido publicado y visible; el estado del documento (original o borrador) se indica en la cabecera cuando existe un borrador local. Cada elemento tiene un enlace profundo `#/item/<kind>/<id>` que restaura la selección y la cámara; `#/studio` queda reservado al editor.
+Vista de consulta del mundo digital: mapa real en 2D o 3D, edificios y objetos ubicados en el territorio, puntos de interés y comercios. Incluye búsqueda con filtros, fichas informativas, temas día/noche, geolocalización y panel de atribuciones. El WORLD muestra únicamente el contenido publicado y visible; el estado del documento (original o borrador) se indica en la cabecera cuando existe un borrador local. Cada elemento tiene un enlace profundo `#/item/<kind>/<id>` que restaura la selección y la cámara.
 
 ### STUDIO
 
@@ -38,7 +38,8 @@ La biblioteca incluye 13 modelos procedimentales (9 edificios y 4 objetos). STUD
 - Edición de nombre, descripción, categoría, icono, visibilidad, posición y otros campos de lugares y comercios.
 - Ajuste de dimensiones y colores de los modelos, sustitución de modelo y alineación con vías.
 - Guardado automático, guardado manual con resultado real (`saveNow()`), importación/exportación de JSON y restauración del documento original. El indicador distingue entre cambios sin guardar, guardado y versión original.
-- Vista previa del WORLD con el documento actual y `showUnpublished: true`, sin publicarlo: el editor permanece montado, el motor se pausa y se conservan pestaña, selección, herramienta y tema.
+- «Actualizar WORLD» genera `data/world.public.json` desde el documento actual con el mismo validador del build público y refresca `/` en desarrollo. Es independiente de Guardar: no toca el borrador privado ni despliega nada.
+- Vista de USUARIO en `/usuario` con el documento actual y sus GLB, sin publicarlo ni reconstruir WORLD; incluye elementos no publicados.
 - Duplicado de puntos y comercios desde la lista y la vista de edición; `Ctrl+D` duplica el elemento activo (entidad, punto o comercio). Las copias mantienen las variantes ES/PT-BR y los comercios copiados quedan como borrador.
 
 ## Idiomas
@@ -109,9 +110,9 @@ El servidor de desarrollo se inicia en `http://localhost:5175` y escucha en `0.0
 | `/` (desarrollo) | WORLD público de solo lectura, con el mismo documento congelado del build (`data/world.public.json`). |
 | `/studio.html` (desarrollo/artefacto privado) | STUDIO privado: borrador local, export/import y herramientas. |
 | `/usuario` (bundle privado) | Vista privada del mismo borrador y GLB de STUDIO, con elementos no publicados. |
-| `/#/item/<kind>/<id>` | WORLD: selección compartible (restaura cámara). |
+| `#/item/<kind>/<id>` | Fragmento dentro de WORLD y de `/usuario`: selección compartible (restaura cámara). No es una ruta del servidor. |
 
-El artefacto público `dist-public/index.html` **no contiene STUDIO**, no importa el editor y no escribe en `localStorage`/IndexedDB. `#/studio` no abre nada en producción. El STUDIO se publica por separado en otro host, protegido por autenticación real en el borde (Cloudflare Access); consulta `cloudflare/README.md`.
+No existen alias `#/studio`, `#editor`, `/studio` ni `/usuario/editor`. El artefacto público `dist-public/index.html` **no contiene STUDIO**, no importa el editor y no escribe en `localStorage`/IndexedDB. El STUDIO se publica por separado en otro host, protegido por autenticación real en el borde (Cloudflare Access); consulta `cloudflare/README.md`.
 
 > El build público falla a propósito si no existe `data/world.public.json`: nunca se generan datos vacíos ni se sustituye el mundo editado por la semilla.
 
@@ -128,7 +129,7 @@ src/
 ├── geo/             Fuente geográfica, teselas y atribuciones
 ├── i18n/            Idioma, traducciones, formatos y campos localizados
 ├── ui/              Selector de idioma, iconos, avisos y enlace al motor
-├── App.tsx          Detección del modo WORLD / STUDIO
+├── App.tsx          Router privado: STUDIO / USUARIO
 ├── main.tsx         Entrada de index.html
 └── studio-main.tsx  Entrada de studio.html
 index.html           Documento de entrada del WORLD

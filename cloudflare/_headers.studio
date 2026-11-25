@@ -1,7 +1,7 @@
 # Cloudflare Pages: cabeceras para el host privado de STUDIO.
 # Se copia a dist-studio/_headers durante `npm run build:studio`.
 # El acceso (Cloudflare Access) debe configurarse en el dashboard para el host real
-# de STUDIO: el fragmento "#/studio" NO se envía al servidor y no puede protegerse.
+# de STUDIO. Las rutas oficiales son /studio.html y /usuario; no hay alias por fragmento.
 /*
   Cache-Control: no-store, no-cache, must-revalidate
   X-Content-Type-Options: nosniff

@@ -50,7 +50,6 @@ export const ptBR: Record<TranslationKey, string> = {
   /* ------------------------------------------------------------------ world */
   'world.aboutAria': 'Sobre o TUMEREMO WORLD',
   'world.backToStudio': 'Voltar ao STUDIO',
-  'world.previewChip': 'Pré-visualização do WORLD com seus dados locais',
   'world.draftChip': 'Rascunho local do STUDIO · ver original',
   'world.draftTitle': 'Mostrar a versão original, sem as edições locais do STUDIO',
   'world.originalChip': 'Versão original · voltar ao rascunho',
@@ -59,13 +58,10 @@ export const ptBR: Record<TranslationKey, string> = {
   'world.locateAria': 'Minha localização',
   'world.themeToDay': 'Mudar para o modo dia',
   'world.themeToNight': 'Mudar para o modo noite',
-  'world.searchCta': 'Explorar Tumeremo…',
   'world.mapError': 'Não foi possível carregar parte do mapa. Verifique sua conexão.',
   'world.locationDenied': 'Permissão de localização negada.',
   'world.locationUnsupported': 'Este dispositivo não oferece geolocalização.',
   'world.locationOutside': 'Você está fora da área mapeada de Tumeremo.',
-  'world.coordsCopied': 'Coordenadas copiadas.',
-  'world.copyFailed': 'Não foi possível copiar.',
 
   /* ---------------------------------------------------------- storage/recovery */
   'storage.saveFailed': 'Não foi possível salvar neste dispositivo. Verifique o espaço disponível.',
@@ -158,11 +154,8 @@ export const ptBR: Record<TranslationKey, string> = {
     'Poucos edifícios estão mapeados no OSM (≈30 polígonos na região medida). Por isso as casas reais quase não aparecem em 3D.',
 
   /* ---------------------------------------------------------------- explore */
-  'explore.aria': 'Explorar Tumeremo',
-  'explore.close': 'Fechar',
   'explore.placeholder': 'Buscar lugares, comércios…',
   'explore.searchAria': 'Buscar',
-  'explore.closeSearch': 'Fechar busca',
   'explore.all': 'Tudo',
   'explore.places': 'Lugares',
   'explore.business': 'Comércios',
@@ -175,22 +168,8 @@ export const ptBR: Record<TranslationKey, string> = {
   'explore.buildingPlain': 'Construção digital',
 
   /* ------------------------------------------------------------------- info */
-  'info.closePanel': 'Fechar painel',
-  'info.realPlace': 'Lugar real',
   'info.osmSource': 'Fonte: OpenStreetMap (ponto de interesse). Sem descrição verificada ainda.',
-  'info.copyCoords': 'Copiar coordenadas',
-  'info.viewOsm': 'Ver no OSM',
-  'info.buildingMissing': 'Construção não encontrada.',
-  'info.demo': 'Demonstração',
   'info.digitalBuilding': 'Construção digital',
-  'info.dimensions': '{w} × {d} m · {h} m de altura',
-  'info.businessesHere': 'Comércios aqui',
-  'info.noBusinesses': 'Nenhum comércio publicado neste edifício.',
-  'info.digitalNote': 'Esta construção é digital: não altera ruas nem dados do mapa real.',
-  'info.businessMissing': 'Comércio não encontrado.',
-  'info.demoProfile': '· Perfil de demonstração',
-  'info.noContact': 'Sem dados de contato cadastrados.',
-  'info.viewBuilding': 'Ver edifício: {name}',
 
   /* ----------------------------------------------------------------- studio */
   'studio.library': 'Biblioteca',
@@ -218,6 +197,7 @@ export const ptBR: Record<TranslationKey, string> = {
   'studio.menuClose': 'Fechar menu',
   'studio.menuSave': 'Salvar agora',
   'studio.menuExport': 'Exportar JSON',
+  'studio.menuUpdateWorld': 'Atualizar WORLD',
   'studio.menuImport': 'Importar JSON',
   'studio.menuNight': 'Mapa em modo noite',
   'studio.menuDay': 'Mapa em modo dia',
@@ -225,6 +205,8 @@ export const ptBR: Record<TranslationKey, string> = {
   'studio.menuOpenWorld': 'Abrir WORLD em nova aba',
   'studio.menuRestore': 'Restaurar versão original',
   'studio.toastSaved': 'Salvo neste dispositivo.',
+  'studio.worldUpdated': 'WORLD local atualizado: {buildings} construções, {businesses} comércios, {places} pontos.',
+  'studio.worldUpdateError': 'Não foi possível atualizar o WORLD: {error}',
   'studio.exportError': 'Não foi possível exportar os modelos 3D deste projeto.',
   'studio.importModels': '{n} modelo(s) 3D importado(s)',
   'studio.importReused': '{n} modelo(s) 3D reutilizado(s)',

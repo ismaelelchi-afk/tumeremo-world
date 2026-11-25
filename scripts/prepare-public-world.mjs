@@ -46,7 +46,7 @@ const HASH64 = /^[0-9a-f]{64}$/i;
 const HASH16 = /^[0-9a-f]{16}$/i;
 const SAFE_ID = /^[a-z0-9_]{3,80}$/i;
 
-function sha256(value) {
+export function sha256(value) {
   return createHash('sha256').update(value).digest('hex');
 }
 
@@ -457,6 +457,39 @@ async function assertNotOverwritten(force, warnings) {
   warnings.push(`Se reemplazará ${path.basename(OUTPUT_PATH)} existente (SHA-256 anterior ${existingSha}).`);
 }
 
+/**
+ * Genera el mundo público sin leer ni escribir archivos. Lo usan el CLI y el endpoint
+ * de desarrollo de STUDIO para que la validación y la forma del JSON sean idénticas.
+ */
+export async function buildPublicWorld(input, options = {}) {
+  const { warnings = [], sourceName = null, sourceSha256 = null } = options;
+  const builtinIds = await loadBuiltinIds(warnings);
+  const { output, preservedKeys } = buildOutput(input, builtinIds, warnings);
+
+  output.source.file = sourceName;
+  output.source.sha256 = sourceSha256;
+
+  const hidden = output.document.buildings.filter((b) => isObject(b) && b.visible === false).length
+    + output.document.objects.filter((o) => isObject(o) && o.visible === false).length
+    + (output.document.places ?? []).filter((p) => isObject(p) && p.visible === false).length;
+  const drafts = output.document.businesses.filter((b) => isObject(b) && b.published === false).length;
+  warnings.push(`Sin filtrado por published/visible: se conservan ${hidden} entidades ocultas y ${drafts} comercios no publicados.`);
+
+  return { output, serialized: JSON.stringify(output, null, 2), warnings, preservedKeys };
+}
+
+/** Escritura atómica compartida por el CLI y el endpoint local. */
+export async function writePublicWorld(serialized) {
+  try {
+    await writeFile(TMP_PATH, serialized, 'utf8');
+    await rename(TMP_PATH, OUTPUT_PATH);
+  } catch (error) {
+    await unlink(TMP_PATH).catch(() => {});
+    throw new Error(`No se pudo escribir ${OUTPUT_PATH}: ${error.message}`);
+  }
+  return OUTPUT_PATH;
+}
+
 async function main() {
   const options = parseCli(process.argv.slice(2));
   if (options.help) {
@@ -475,18 +508,12 @@ async function main() {
   if (bom) warnings.push('El export tenía BOM; se ignoró para parsearlo (el archivo original no se modifica).');
   const sourceSha = sha256(buffer);
 
-  const builtinIds = await loadBuiltinIds(warnings);
-  const { output, preservedKeys } = buildOutput(input, builtinIds, warnings);
-  output.source.file = path.basename(sourcePath);
-  output.source.sha256 = sourceSha;
+  const { output, serialized, preservedKeys } = await buildPublicWorld(input, {
+    warnings,
+    sourceName: path.basename(sourcePath),
+    sourceSha256: sourceSha,
+  });
 
-  const hidden = output.document.buildings.filter((b) => isObject(b) && b.visible === false).length
-    + output.document.objects.filter((o) => isObject(o) && o.visible === false).length
-    + (output.document.places ?? []).filter((p) => isObject(p) && p.visible === false).length;
-  const drafts = output.document.businesses.filter((b) => isObject(b) && b.published === false).length;
-  warnings.push(`Sin filtrado por published/visible: se conservan ${hidden} entidades ocultas y ${drafts} comercios no publicados.`);
-
-  const serialized = JSON.stringify(output, null, 2);
   const outputSha = sha256(Buffer.from(serialized, 'utf8'));
   printSummary({
     sourceName: path.basename(sourcePath),
@@ -506,19 +533,16 @@ async function main() {
 
   // Segunda comprobación para cubrir una carrera con otro proceso durante la validación.
   if (!options.force && existsSync(OUTPUT_PATH)) await assertNotOverwritten(false, warnings);
-  try {
-    await writeFile(TMP_PATH, serialized, 'utf8');
-    await rename(TMP_PATH, OUTPUT_PATH);
-  } catch (error) {
-    await unlink(TMP_PATH).catch(() => {});
-    throw new Error(`No se pudo escribir ${OUTPUT_PATH}: ${error.message}`);
-  }
+  await writePublicWorld(serialized);
   console.log(`Escrito: ${OUTPUT_PATH}`);
 }
 
-try {
-  await main();
-} catch (error) {
-  console.error(`ERROR: ${error instanceof Error ? error.message : String(error)}`);
-  process.exitCode = 1;
+const invokedDirectly = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (invokedDirectly) {
+  try {
+    await main();
+  } catch (error) {
+    console.error(`ERROR: ${error instanceof Error ? error.message : String(error)}`);
+    process.exitCode = 1;
+  }
 }

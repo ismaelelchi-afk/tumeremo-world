@@ -89,6 +89,14 @@ function verifyPublic(distDir, file) {
   } else {
     console.log('  studio.html: ausente [OK]');
   }
+  for (const privateFile of ['_headers', '_redirects']) {
+    const privatePath = path.join(distDir, privateFile);
+    if (existsSync(privatePath)) {
+      errors.push(`Existe dist-public/${privateFile}: la configuración privada no debe publicarse.`);
+    } else {
+      console.log(`  ${privateFile}: ausente [OK]`);
+    }
+  }
 
   const chosen = file ? resolveCandidate(file, distDir) : indexPath;
   console.log(`  HTML comprobado: ${chosen}`);
@@ -106,7 +114,6 @@ function verifyPublic(distDir, file) {
 function verifyStudio(distDir, file) {
   const errors = [];
   const studioHtml = path.join(distDir, 'studio.html');
-  const indexHtml = path.join(distDir, 'index.html');
 
   console.log('TARGET · dist-studio');
   console.log(`  Directorio: ${distDir}`);
@@ -114,11 +121,10 @@ function verifyStudio(distDir, file) {
   let chosen = null;
   if (file) {
     chosen = resolveCandidate(file, distDir);
+  } else if (existsSync(studioHtml) && statSync(studioHtml).isFile()) {
+    chosen = studioHtml;
   } else {
-    chosen = [studioHtml, indexHtml].find((candidate) => existsSync(candidate) && statSync(candidate).isFile()) ?? null;
-    if (!chosen) {
-      errors.push('No se encontró el HTML de entrada de STUDIO (dist-studio/studio.html ni dist-studio/index.html).');
-    }
+    errors.push('No se encontró dist-studio/studio.html.');
   }
   console.log(`  HTML de entrada: ${chosen ?? '(ninguno)'}`);
 
@@ -149,12 +155,23 @@ function verifyStudio(distDir, file) {
 
   const redirectsPath = path.join(distDir, '_redirects');
   if (!existsSync(redirectsPath) || !statSync(redirectsPath).isFile()) {
-    errors.push('Falta dist-studio/_redirects (ruta privada /usuario).');
+    errors.push('Falta dist-studio/_redirects (rutas privadas oficiales).');
   } else {
     const redirects = readFileSync(redirectsPath, 'utf8');
-    const hasUserRoute = /^\s*\/usuario\s+\/studio\.html\s+200\s*$/m.test(redirects);
-    console.log(`  _redirects: presente; /usuario → /studio.html: ${hasUserRoute ? 'sí [OK]' : 'NO'}`);
-    if (!hasUserRoute) errors.push('dist-studio/_redirects no contiene la regla /usuario → /studio.html 200.');
+    const routes = redirects
+      .split('\n')
+      .map((line) => line.trim().replace(/\s+/g, ' '))
+      .filter((line) => line.length > 0 && !line.startsWith('#'));
+    const expected = [
+      '/usuario /studio.html 200',
+      '/studio 404',
+      '/studio/ 404',
+      '/usuario/ 404',
+      '/usuario/* 404',
+    ];
+    const missing = expected.filter((route) => !routes.includes(route));
+    console.log(`  _redirects: ${missing.length ? 'FALTO' : 'OK'} (${routes.length} reglas)`);
+    for (const route of missing) errors.push(`dist-studio/_redirects no contiene la regla ${JSON.stringify(route)}.`);
   }
 
   printProblems(errors);

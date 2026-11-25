@@ -1,7 +1,7 @@
 /**
- * Enlaces profundos del WORLD público. El editor usa `#/studio`; las entidades usan
- * `#/item/<kind>/<id>`. Solo se parsean IDs simples: un enlace externo nunca puede
- * inyectar HTML ni rutas arbitrarias en la aplicación.
+ * Enlaces profundos de WORLD y de la vista privada de `/usuario`: fragmentos
+ * `#/item/<kind>/<id>` que restauran selección y cámara. Solo se parsean IDs
+ * simples: un enlace externo nunca puede inyectar HTML ni rutas arbitrarias.
  */
 import type { WorldSelection } from '../../core/types';
 

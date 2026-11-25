@@ -4,11 +4,7 @@ import { Icon, LogoMark } from '../../ui/Icon';
 
 type UiTheme = 'light' | 'dark';
 
-/**
- * WORLD usa dos roots distintos: `WorldApp` expone `data-ui` y `WorldCityApp`
- * gestiona el tema en React. Si no llega la prop, se lee del root compartido para
- * que este panel sea correcto en ambas experiencias sin tocar STUDIO.
- */
+/** El tema se pasa desde la vista activa; el root compartido es solo fallback. */
 function resolveUi(ui?: UiTheme): UiTheme {
   if (ui) return ui;
   if (typeof document !== 'undefined') {

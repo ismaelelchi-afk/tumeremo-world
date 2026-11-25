@@ -6,7 +6,7 @@
  * publicado vive en otro host. En desarrollo, sin variable configurada, se usa
  * el WORLD local del servidor de Vite para no romper la navegación.
  */
-const DEV_WORLD_URL = '/index.html';
+const DEV_WORLD_URL = '/';
 
 function configuredUrl(): string | null {
   const injected =

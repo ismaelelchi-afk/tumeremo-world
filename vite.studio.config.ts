@@ -56,6 +56,7 @@ function copyStudioHostFiles(): Plugin {
 
 export default defineConfig({
   mode: "studio",
+  appType: "mpa",
   plugins: [react(), tailwindcss(), viteSingleFile(), copyStudioHostFiles()],
   define: {
     __STUDIO_PUBLIC_WORLD_URL__: JSON.stringify(configuredWorldUrl),

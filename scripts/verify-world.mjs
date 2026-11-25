@@ -29,12 +29,13 @@ const ROOT = path.resolve(HERE, '..');
 export const WORLD_PATH = path.join(ROOT, 'data', 'world.public.json');
 
 /**
- * Cadenas de CÓDIGO/PERSISTENCIA que NO deben aparecer en el HTML público.
+ * Cadenas de CÓDIGO/PERSISTENCIA/RUTA PRIVADA que NO deben aparecer en el HTML público.
  * Las claves de traducción (`studio.*`) no se usan como marcador: forman parte de los
  * catálogos i18n compartidos y no habilitan ninguna función de edición.
  */
 export const EDITOR_MARKERS = Object.freeze([
-  '#/studio',
+  '/studio.html',
+  '/__local-world/update',
   'StudioApp',
   'documentStore',
   'initCustomModels',
@@ -52,7 +53,8 @@ const ALL_MARKERS = Object.freeze([...new Set([...EDITOR_MARKERS, ...STUDIO_ONLY
 const STUDIO_PRESENCE_MARKERS = Object.freeze([
   'TUMEREMO STUDIO',
   'studio.menuExport',
-  '#/studio',
+  '/__local-world/update',
+  '/studio.html',
   'setItem(',
   'tumeremo-world:document:v1',
 ]);

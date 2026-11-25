@@ -1,8 +1,8 @@
 /**
  * Evolución de WORLD inspirada en Tumeremo-3D (cabecera, buscador, categorías,
- * directorio y controles) sobre el motor real de Tumeremo World. No sustituye a
- * `WorldApp`: recibe el documento como prop para que el bundle público no dependa
- * del almacén local; `/usuario` le pasa el borrador del STUDIO.
+ * directorio y controles) sobre el motor real de Tumeremo World. Recibe el
+ * documento como prop para que el bundle público no dependa del almacén local;
+ * `/usuario` le pasa el borrador del STUDIO.
  *
  * Los tres edificios oficiales forman parte del WorldDocument compartido: WORLD lo
  * consume directamente, sin copias aumentadas ni duplicados.
