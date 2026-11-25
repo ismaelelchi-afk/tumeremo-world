@@ -41,9 +41,9 @@ dominio (o hacer la purga desde el dashboard).
 
 ## Comandos
 
-El export del navegador `data/world.public.json` no está incluido: se genera con el export real del
-usuario. Sin ese archivo, `build:public` falla con un mensaje claro (no hay datos vacíos ni
-fallbacks).
+El mundo publicado `data/world.public.json` se genera con el export real de STUDIO y debe estar
+versionado antes de desplegar. Si falta o no coincide con el export, `verify:world` y
+`build:public` fallan con un mensaje claro (no hay datos vacíos ni fallbacks).
 
 ```bash
 npm run prepare:world -- <ruta-al-export-de-STUDIO.json>   # genera data/world.public.json
