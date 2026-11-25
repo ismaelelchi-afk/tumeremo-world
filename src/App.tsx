@@ -1,18 +1,20 @@
 import { useEffect, useState } from 'react';
 import { StudioApp } from './apps/studio/StudioApp';
-import { useI18n } from './i18n';
 import { WorldCityApp } from './apps/world/WorldCityApp';
+import { useI18n } from './i18n';
 
-type Mode = 'world' | 'studio';
+type Mode = 'world' | 'studio' | 'user';
 
 function detectMode(): Mode {
+  if (/^\/usuario\/?$/.test(location.pathname)) return 'user';
   if (/studio(\.html)?\/?$/.test(location.pathname) || location.hash.startsWith('#/studio')) return 'studio';
   return 'world';
 }
 
 /**
- * Dois produtos, um motor: WORLD (público) e STUDIO (editor). O modo vem de studio.html
- * ou de `#/studio` — assim o build de arquivo único (dist/index.html) contém os dois.
+ * Router del bundle privado: STUDIO edita el borrador y `/usuario` lo visualiza
+ * con el mismo documento y los mismos modelos, sin publicar ni reconstruir WORLD.
+ * La entrada pública no importa este archivo.
  */
 export default function App({ forceMode }: { forceMode?: Mode }) {
   const [mode, setMode] = useState<Mode>(forceMode ?? detectMode());
@@ -26,10 +28,14 @@ export default function App({ forceMode }: { forceMode?: Mode }) {
   }, [forceMode]);
 
   useEffect(() => {
-    const studio = mode === 'studio';
-    document.title = studio ? t('app.studio') : t('app.world');
-    document.querySelector('meta[name="description"]')?.setAttribute('content', t(studio ? 'app.studioDescription' : 'app.description'));
+    const key =
+      mode === 'studio' ? 'app.studio' : mode === 'user' ? 'app.user' : 'app.world';
+    const description =
+      mode === 'studio' ? 'app.studioDescription' : mode === 'user' ? 'app.userDescription' : 'app.description';
+    document.title = t(key);
+    document.querySelector('meta[name="description"]')?.setAttribute('content', t(description));
   }, [mode, t]);
 
-  return mode === 'studio' ? <StudioApp /> : <WorldCityApp />;
+  if (mode === 'studio') return <StudioApp />;
+  return <WorldCityApp privateView={mode === 'user'} />;
 }

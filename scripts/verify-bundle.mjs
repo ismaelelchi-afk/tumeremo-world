@@ -147,6 +147,16 @@ function verifyStudio(distDir, file) {
     if (!hasNoStore) errors.push('dist-studio/_headers no contiene "no-store".');
   }
 
+  const redirectsPath = path.join(distDir, '_redirects');
+  if (!existsSync(redirectsPath) || !statSync(redirectsPath).isFile()) {
+    errors.push('Falta dist-studio/_redirects (ruta privada /usuario).');
+  } else {
+    const redirects = readFileSync(redirectsPath, 'utf8');
+    const hasUserRoute = /^\s*\/usuario\s+\/studio\.html\s+200\s*$/m.test(redirects);
+    console.log(`  _redirects: presente; /usuario → /studio.html: ${hasUserRoute ? 'sí [OK]' : 'NO'}`);
+    if (!hasUserRoute) errors.push('dist-studio/_redirects no contiene la regla /usuario → /studio.html 200.');
+  }
+
   printProblems(errors);
   return errors.length === 0;
 }

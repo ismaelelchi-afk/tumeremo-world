@@ -108,6 +108,7 @@ El servidor de desarrollo se inicia en `http://localhost:5175` y escucha en `0.0
 | --- | --- |
 | `/` (desarrollo) | WORLD público de solo lectura, con el mismo documento congelado del build (`data/world.public.json`). |
 | `/studio.html` (desarrollo/artefacto privado) | STUDIO privado: borrador local, export/import y herramientas. |
+| `/usuario` (bundle privado) | Vista privada del mismo borrador y GLB de STUDIO, con elementos no publicados. |
 | `/#/item/<kind>/<id>` | WORLD: selección compartible (restaura cámara). |
 
 El artefacto público `dist-public/index.html` **no contiene STUDIO**, no importa el editor y no escribe en `localStorage`/IndexedDB. `#/studio` no abre nada en producción. El STUDIO se publica por separado en otro host, protegido por autenticación real en el borde (Cloudflare Access); consulta `cloudflare/README.md`.

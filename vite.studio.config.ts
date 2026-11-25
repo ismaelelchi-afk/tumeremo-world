@@ -14,6 +14,9 @@ const studioInput = fileURLToPath(new URL("./studio.html", import.meta.url));
 const studioHeadersSource = fileURLToPath(
   new URL("./cloudflare/_headers.studio", import.meta.url),
 );
+const studioRedirectsSource = fileURLToPath(
+  new URL("./cloudflare/_redirects.studio", import.meta.url),
+);
 const studioOutDir = path.resolve(__dirname, "dist-studio");
 
 /** El host público es configuración del despliegue, nunca el origen de STUDIO. */
@@ -39,20 +42,21 @@ function publicWorldUrl(): string {
 
 const configuredWorldUrl = publicWorldUrl();
 
-function copyStudioHeaders(): Plugin {
+function copyStudioHostFiles(): Plugin {
   return {
-    name: "copy-studio-headers",
+    name: "copy-studio-host-files",
     apply: "build",
     closeBundle() {
       fs.mkdirSync(studioOutDir, { recursive: true });
       fs.copyFileSync(studioHeadersSource, path.join(studioOutDir, "_headers"));
+      fs.copyFileSync(studioRedirectsSource, path.join(studioOutDir, "_redirects"));
     },
   };
 }
 
 export default defineConfig({
   mode: "studio",
-  plugins: [react(), tailwindcss(), viteSingleFile(), copyStudioHeaders()],
+  plugins: [react(), tailwindcss(), viteSingleFile(), copyStudioHostFiles()],
   define: {
     __STUDIO_PUBLIC_WORLD_URL__: JSON.stringify(configuredWorldUrl),
   },

@@ -7,14 +7,14 @@ import { installLanguagePersistence } from './i18n/languagePersistence';
 import { documentStore } from './core/store';
 import { initCustomModels } from './data/customModels';
 
-/** Entrada de studio.html: mesma aplicação, modo STUDIO fixo. */
+/** Entrada privada: el router decide entre STUDIO y `/usuario` según la ruta. */
 installLanguagePersistence();
 
 void initCustomModels().then(() => documentStore.init()).then(() => {
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
       <LanguageProvider>
-        <App forceMode="studio" />
+        <App forceMode={/^\/usuario\/?$/.test(location.pathname) ? 'user' : 'studio'} />
       </LanguageProvider>
     </StrictMode>,
   );

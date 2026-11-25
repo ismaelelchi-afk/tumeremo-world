@@ -16,6 +16,23 @@ const { document, models } = loadPublicWorld(process.env.PUBLIC_WORLD_DATA);
  * Vite no aplica `define` a módulos servidos en desarrollo. El HTML inyecta los
  * mismos globals que el build define, antes de que se ejecute cualquier módulo.
  */
+/** En desarrollo, `/usuario` sirve el HTML de STUDIO; el navegador conserva la URL. */
+function studioUserRoute(): Plugin {
+  return {
+    name: "studio-user-route",
+    apply: "serve",
+    configureServer(server) {
+      server.middlewares.use((req, _res, next) => {
+        const [pathname, ...query] = (req.url ?? "").split("?");
+        if (/^\/usuario\/?$/.test(pathname)) {
+          req.url = `/studio.html${query.length ? `?${query.join("?")}` : ""}`;
+        }
+        next();
+      });
+    },
+  };
+}
+
 function injectDevPublicWorld(): Plugin {
   const json = (value: unknown) => JSON.stringify(value).replace(/</g, "\\u003c");
   const script =
@@ -25,7 +42,7 @@ function injectDevPublicWorld(): Plugin {
     name: "inject-dev-public-world",
     apply: "serve",
     transformIndexHtml(html: string, ctx: { path: string }) {
-      if (/studio(\.html)?\/?$/.test(ctx.path)) return html;
+      if (/(\/studio(\.html)?|\/usuario)\/?$/.test(ctx.path)) return html;
       return { html, tags: [{ tag: "script", children: script, injectTo: "head-prepend" }] };
     },
   };
@@ -33,7 +50,7 @@ function injectDevPublicWorld(): Plugin {
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), tailwindcss(), viteSingleFile(), injectDevPublicWorld()],
+  plugins: [react(), tailwindcss(), viteSingleFile(), studioUserRoute(), injectDevPublicWorld()],
   define: {
     __PUBLIC_WORLD_DOCUMENT__: JSON.stringify(document),
     __PUBLIC_WORLD_MODELS__: JSON.stringify(models),

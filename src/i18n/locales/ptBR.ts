@@ -5,10 +5,13 @@ export const ptBR: Record<TranslationKey, string> = {
   /* ---------------------------------------------------------------- app/meta */
   'app.world': 'TUMEREMO WORLD',
   'app.studio': 'TUMEREMO STUDIO',
+  'app.user': 'TUMEREMO USUÁRIO',
   'app.description':
     'TUMEREMO WORLD — o mundo digital híbrido de Tumeremo, Venezuela: mapa real, perspectiva 3D, edifícios e comércios interativos.',
   'app.studioDescription':
     'TUMEREMO STUDIO — editor do mundo digital híbrido de Tumeremo, Venezuela.',
+  'app.userDescription':
+    'TUMEREMO USUÁRIO — visão privada do rascunho atual do STUDIO, sem publicar.',
   'lang.label': 'Idioma da interface',
   'lang.es': 'ES',
   'lang.ptBR': 'PT-BR',
@@ -218,6 +221,7 @@ export const ptBR: Record<TranslationKey, string> = {
   'studio.menuImport': 'Importar JSON',
   'studio.menuNight': 'Mapa em modo noite',
   'studio.menuDay': 'Mapa em modo dia',
+  'studio.menuUserView': 'Ver como usuário (/usuario)',
   'studio.menuOpenWorld': 'Abrir WORLD em nova aba',
   'studio.menuRestore': 'Restaurar versão original',
   'studio.toastSaved': 'Salvo neste dispositivo.',

@@ -526,6 +526,9 @@ function StudioEditor() {
                 <MenuItem icon="download" label={t('studio.menuExport')} onClick={exportJson} />
                 <MenuItem icon="upload" label={t('studio.menuImport')} onClick={() => fileInput.current?.click()} />
                 <MenuItem icon={theme === 'dia' ? 'moon' : 'sun'} label={theme === 'dia' ? t('studio.menuNight') : t('studio.menuDay')} onClick={() => { setTheme(theme === 'dia' ? 'noite' : 'dia'); setMenu(false); }} />
+                <a role="menuitem" className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-[13.5px] font-semibold hover:bg-white/5" href="/usuario" onClick={() => setMenu(false)}>
+                  <Icon name="eye" size={18} /> {t('studio.menuUserView')}
+                </a>
                 <a role="menuitem" className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-[13.5px] font-semibold hover:bg-white/5" href={worldUrl} target="_blank" rel="noopener noreferrer">
                   <Icon name="external" size={18} /> {t('studio.menuOpenWorld')}
                 </a>

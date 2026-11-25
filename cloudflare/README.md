@@ -62,7 +62,7 @@ npm run deploy:studio   # sube dist-studio/ al proyecto Pages privado
 Cada build genera un único HTML autocontenido:
 
 - `build:public` → `dist-public/index.html` (define inyectado con el documento y los modelos públicos).
-- `build:studio` → `dist-studio/studio.html` y `_headers` (copiado desde `cloudflare/_headers.studio`).
+- `build:studio` → `dist-studio/studio.html`, `_headers` (copiado desde `cloudflare/_headers.studio`) y `_redirects` (copiado desde `cloudflare/_redirects.studio`), que sirve `/usuario` con el HTML privado.
 
 `_headers` envía `Cache-Control: no-store` y cabeceras de endurecimiento para STUDIO; **no**
 sustituye a la política de Access, que se configura en el dashboard sobre el host real.

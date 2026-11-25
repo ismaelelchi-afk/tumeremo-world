@@ -2,13 +2,17 @@ import { loadTheme, saveTheme } from '../../core/themePreferences';
 import { documentStore, useDocumentState } from '../../core/store';
 import { WorldCityView } from './WorldCityView';
 
-/** Envoltorio privado: conserva el borrador local, el enlace a STUDIO y las preferencias. */
-export function WorldCityApp() {
+/**
+ * Envoltorio privado: usa el borrador del store y las preferencias guardadas.
+ * `privateView` habilita `/usuario`; la vista pública no importa este archivo.
+ */
+export function WorldCityApp({ privateView = false }: { privateView?: boolean }) {
   const state = useDocumentState();
   return (
     <WorldCityView
       doc={state.doc}
-      studioHref="#/studio"
+      studioHref={privateView ? '/studio.html' : '#/studio'}
+      showUnpublished={privateView}
       initialTheme={loadTheme()}
       onThemeChange={saveTheme}
       draftChip={

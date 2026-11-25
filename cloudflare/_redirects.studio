@@ -1,0 +1,5 @@
+# Cloudflare Pages: `/usuario` se sirve con el HTML privado de STUDIO.
+# Se copia a dist-studio/_redirects durante `npm run build:studio`.
+# Es un rewrite (200): el navegador conserva la URL /usuario y el router de
+# studio-main.tsx elige la vista privada.
+/usuario /studio.html 200

@@ -1,8 +1,8 @@
 /**
  * Evolución de WORLD inspirada en Tumeremo-3D (cabecera, buscador, categorías,
  * directorio y controles) sobre el motor real de Tumeremo World. No sustituye a
- * `WorldApp`: el STUDIO sigue usándolo como vista previa. Esta vista recibe el
- * documento como prop para que el bundle público no dependa del almacén local.
+ * `WorldApp`: recibe el documento como prop para que el bundle público no dependa
+ * del almacén local; `/usuario` le pasa el borrador del STUDIO.
  *
  * Los tres edificios oficiales forman parte del WorldDocument compartido: WORLD lo
  * consume directamente, sin copias aumentadas ni duplicados.
@@ -67,6 +67,8 @@ export interface WorldCityViewProps {
   doc: WorldDocument;
   studioHref?: string | null;
   draftChip?: { source: 'draft' | 'original'; onToggle: () => void } | null;
+  /** Solo `/usuario` lo activa: el bundle público mantiene el valor por defecto. */
+  showUnpublished?: boolean;
   /** La entrada privada inyecta la preferencia guardada; la pública no persiste nada. */
   initialTheme?: string;
   onThemeChange?: (theme: string) => void;
@@ -76,6 +78,7 @@ export function WorldCityView({
   doc,
   studioHref = null,
   draftChip = null,
+  showUnpublished = false,
   initialTheme,
   onThemeChange,
 }: WorldCityViewProps) {
@@ -120,7 +123,7 @@ export function WorldCityView({
     WORLD_ENGINE_OPTIONS,
   );
 
-  // Un único sistema orbital para WORLD y para la vista previa del STUDIO.
+  // Un único sistema orbital para WORLD y para la vista privada de `/usuario`.
   const { focusOn, startOrbit, stopOrbit, cancelFocus, orbiting } = useWorldCamera(engine, doc, isDesktop);
 
   useEffect(() => {
@@ -136,8 +139,8 @@ export function WorldCityView({
   // Los modelos de los tres comercios ya están en MODEL_LIBRARY desde el arranque.
   // El mapa real y sus datos siguen siendo la fuente: solo cambia la capa visual.
   useEffect(() => {
-    engine?.setData(doc, { showUnpublished: false });
-  }, [engine, doc]);
+    engine?.setData(doc, { showUnpublished });
+  }, [engine, doc, showUnpublished]);
 
   useEffect(() => {
     if (engine && ready) engine.intro();
@@ -160,7 +163,7 @@ export function WorldCityView({
       list.push(item);
     };
     for (const b of doc.businesses) {
-      if (!b.published || !b.buildingId) continue;
+      if ((!showUnpublished && !b.published) || !b.buildingId) continue;
       // Los tres edificios oficiales son una sola ficha: comercio + construcción.
       const feature = FEATURE_BUILDING_IDS.has(b.buildingId);
       add({
@@ -205,7 +208,7 @@ export function WorldCityView({
       });
     }
     return list;
-  }, [doc, lang, t]);
+  }, [doc, lang, t, showUnpublished]);
   itemsRef.current = items;
 
   const nq = normalizeText(query.trim());
@@ -482,6 +485,12 @@ export function WorldCityView({
                 <Icon name="layers" size={14} />
                 <span className="hidden sm:inline">{t(draftChip.source === 'draft' ? 'world.draftChip' : 'world.originalChip')}</span>
               </button>
+            )}
+            {studioHref && (
+              <a className="chip min-h-11 !px-3 text-[11px]" href={studioHref}>
+                <Icon name="back" size={14} />
+                <span className="hidden sm:inline">{t('world.backToStudio')}</span>
+              </a>
             )}
             <LanguageSwitch compact />
             {isDesktop && (

@@ -6,10 +6,13 @@ export const es = {
   /* ---------------------------------------------------------------- app/meta */
   'app.world': 'TUMEREMO WORLD',
   'app.studio': 'TUMEREMO STUDIO',
+  'app.user': 'TUMEREMO USUARIO',
   'app.description':
     'TUMEREMO WORLD — el mundo digital híbrido de Tumeremo, Venezuela: mapa real, perspectiva 3D, edificios y comercios interactivos.',
   'app.studioDescription':
     'TUMEREMO STUDIO — editor del mundo digital híbrido de Tumeremo, Venezuela.',
+  'app.userDescription':
+    'TUMEREMO USUARIO — vista privada del borrador actual de STUDIO, sin publicar.',
   'lang.label': 'Idioma de la interfaz',
   'lang.es': 'ES',
   'lang.ptBR': 'PT-BR',
@@ -219,6 +222,7 @@ export const es = {
   'studio.menuImport': 'Importar JSON',
   'studio.menuNight': 'Mapa en modo noche',
   'studio.menuDay': 'Mapa en modo día',
+  'studio.menuUserView': 'Ver como usuario (/usuario)',
   'studio.menuOpenWorld': 'Abrir WORLD en una pestaña nueva',
   'studio.menuRestore': 'Restaurar versión original',
   'studio.toastSaved': 'Guardado en este dispositivo.',
