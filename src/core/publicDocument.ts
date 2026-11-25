@@ -1,7 +1,5 @@
 import type { WorldDocument } from '../core/types';
 
-declare const __PUBLIC_WORLD_DOCUMENT__: WorldDocument;
-
 function injectedDocument(): WorldDocument {
   const value =
     typeof __PUBLIC_WORLD_DOCUMENT__ !== 'undefined'

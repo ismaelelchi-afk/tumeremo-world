@@ -31,6 +31,7 @@ No hay valores por defecto ni credenciales inventadas en el repositorio. El usua
 | Nombre del proyecto Pages público | `CF_PAGES_PROJECT_PUBLIC` |
 | Nombre del proyecto Pages privado (STUDIO) y su host | `CF_PAGES_PROJECT_STUDIO` y la configuración del host en Cloudflare |
 | Dominio(s) que se asociarán a cada proyecto | DNS / dominios personalizados en el dashboard |
+| URL absoluta del WORLD público | `VITE_PUBLIC_WORLD_URL`, requerida por `build:studio` para «Abrir WORLD»; no se deriva del host de STUDIO |
 | Permiso para crear/configurar una aplicación y política de **Cloudflare Access** sobre el host de STUDIO | Protección del editor |
 | `CLOUDFLARE_ACCOUNT_ID` (ID de cuenta) | Wrangler necesita la cuenta destino |
 | `CLOUDFLARE_API_TOKEN` con permiso **Pages:Edit** | Wrangler necesita subir los archivos |
@@ -52,6 +53,8 @@ export CLOUDFLARE_ACCOUNT_ID='<ID_DE_CUENTA>'
 export CLOUDFLARE_API_TOKEN='<TOKEN_CON_PAGES_EDIT>'
 export CF_PAGES_PROJECT_PUBLIC='<NOMBRE_PROYECTO_PUBLICO>'
 export CF_PAGES_PROJECT_STUDIO='<NOMBRE_PROYECTO_STUDIO>'
+export VITE_PUBLIC_WORLD_URL='https://<DOMINIO_PUBLICO>/'   # la usa build:studio
+npm run build:studio    # falla si falta VITE_PUBLIC_WORLD_URL
 npm run deploy:public   # sube dist-public/ al proyecto Pages público
 npm run deploy:studio   # sube dist-studio/ al proyecto Pages privado
 ```

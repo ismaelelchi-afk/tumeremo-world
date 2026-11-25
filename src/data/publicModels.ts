@@ -18,8 +18,6 @@ export interface PublicModelBundle {
   hasSign?: boolean;
 }
 
-declare const __PUBLIC_WORLD_MODELS__: PublicModelBundle[];
-
 /** Múltiplo de 4 para no partir una terna base64 entre llamadas a `atob`. */
 const BASE64_CHUNK = 0x8000;
 

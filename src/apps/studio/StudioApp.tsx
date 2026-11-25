@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { publicWorldUrl } from '../../config/publicWorld';
 import type { AnimationOverrides, WorldAnimationConfig } from '../../core/animation';
 import { normalizeDegrees } from '../../core/geo';
 import { exportDocumentJson, importDocumentJson } from '../../data/customModels';
@@ -446,12 +447,8 @@ function StudioEditor() {
 
   const ui = VISUAL.themes[theme].ui;
   const is3d = pitch > 12;
-  const worldUrl = useMemo(() => {
-    const url = new URL(location.href);
-    url.hash = '';
-    if (/studio(\.html)?\/?$/.test(url.pathname)) url.pathname = url.pathname.replace(/studio(\.html)?\/?$/, 'index.html');
-    return url.pathname + url.search;
-  }, []);
+  // El WORLD público se sirve en otro host: la URL se fija en el build de STUDIO.
+  const worldUrl = useMemo(() => publicWorldUrl(), []);
   const saveLabel = state.saving
     ? t('studio.saving')
     : state.dirty || state.saveError

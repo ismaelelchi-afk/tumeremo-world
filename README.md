@@ -97,7 +97,7 @@ El servidor de desarrollo se inicia en `http://localhost:5175` y escucha en `0.0
 | `npm run prepare:world -- <export.json>` | Valida el export de STUDIO y genera `data/world.public.json`. |
 | `npm run verify:world` | Verifica el mundo publicado (o informa del bloqueo si falta el export). |
 | `npm run build` / `npm run build:public` | Genera `dist-public/index.html`: WORLD de solo lectura, sin editor. |
-| `npm run build:studio` | Genera `dist-studio/studio.html` + `_headers`: STUDIO privado. |
+| `VITE_PUBLIC_WORLD_URL=<url> npm run build:studio` | Genera `dist-studio/studio.html` + `_headers`: STUDIO privado. La URL pública de «Abrir WORLD» es obligatoria. |
 | `npm run check:all` | Typecheck + verificación del mundo + ambos builds. |
 | `npm run typecheck` | Comprueba TypeScript sin emitir archivos. |
 | `npm run preview -- --outDir dist-public` | Sirve localmente el artefacto público (usa `--outDir dist-studio` para STUDIO). |
@@ -106,7 +106,7 @@ El servidor de desarrollo se inicia en `http://localhost:5175` y escucha en `0.0
 
 | Ruta | Modo |
 | --- | --- |
-| `/` (desarrollo) | WORLD público de solo lectura. Requiere haber ejecutado antes `npm run build:public` y servir `dist-public/index.html`; el servidor de desarrollo no inyecta el documento. |
+| `/` (desarrollo) | WORLD público de solo lectura, con el mismo documento congelado del build (`data/world.public.json`). |
 | `/studio.html` (desarrollo/artefacto privado) | STUDIO privado: borrador local, export/import y herramientas. |
 | `/#/item/<kind>/<id>` | WORLD: selección compartible (restaura cámara). |
 
