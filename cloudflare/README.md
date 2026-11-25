@@ -46,7 +46,7 @@ usuario. Sin ese archivo, `build:public` falla con un mensaje claro (no hay dato
 fallbacks).
 
 ```bash
-npm run prepare:world   # genera data/world.public.json a partir del export del usuario
+npm run prepare:world -- <ruta-al-export-de-STUDIO.json>   # genera data/world.public.json
 npm run check:all       # typecheck + verify:world + build:public + build:studio
 export CLOUDFLARE_ACCOUNT_ID='<ID_DE_CUENTA>'
 export CLOUDFLARE_API_TOKEN='<TOKEN_CON_PAGES_EDIT>'

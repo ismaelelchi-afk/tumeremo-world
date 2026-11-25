@@ -100,13 +100,13 @@ El servidor de desarrollo se inicia en `http://localhost:5175` y escucha en `0.0
 | `npm run build:studio` | Genera `dist-studio/studio.html` + `_headers`: STUDIO privado. |
 | `npm run check:all` | Typecheck + verificación del mundo + ambos builds. |
 | `npm run typecheck` | Comprueba TypeScript sin emitir archivos. |
-| `npm run preview` | Sirve localmente el contenido de `dist/`. |
+| `npm run preview -- --outDir dist-public` | Sirve localmente el artefacto público (usa `--outDir dist-studio` para STUDIO). |
 
 ## Rutas
 
 | Ruta | Modo |
 | --- | --- |
-| `/` (desarrollo) | WORLD público de solo lectura, alimentado por `data/world.public.json`. |
+| `/` (desarrollo) | WORLD público de solo lectura. Requiere haber ejecutado antes `npm run build:public` y servir `dist-public/index.html`; el servidor de desarrollo no inyecta el documento. |
 | `/studio.html` (desarrollo/artefacto privado) | STUDIO privado: borrador local, export/import y herramientas. |
 | `/#/item/<kind>/<id>` | WORLD: selección compartible (restaura cámara). |
 

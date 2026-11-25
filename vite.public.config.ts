@@ -20,7 +20,7 @@ function loadPublicWorld(): { document: unknown; models: unknown } {
     const code = (error as NodeJS.ErrnoException).code;
     if (code === "ENOENT") {
       throw new Error(
-        `Falta ${label}. Ejecuta "npm run prepare:world" (scripts/prepare-public-world.mjs) para generar el export del navegador antes de compilar la app pública; no se usan datos vacíos ni fallbacks.`,
+        `Falta ${label}. Ejecuta "npm run prepare:world -- <export.json>" (scripts/prepare-public-world.mjs) para generar el export del navegador antes de compilar la app pública; no se usan datos vacíos ni fallbacks.`,
       );
     }
     throw new Error(`No se pudo leer ${label}: ${String(error)}`);
@@ -39,10 +39,10 @@ function loadPublicWorld(): { document: unknown; models: unknown } {
 
   const data = parsed as Record<string, unknown>;
   if (data.document === undefined || data.document === null) {
-    throw new Error(`${label} no contiene \`document\`; ejecuta "npm run prepare:world".`);
+    throw new Error(`${label} no contiene \`document\`; ejecuta "npm run prepare:world -- <export.json>".`);
   }
   if (!Array.isArray(data.models)) {
-    throw new Error(`${label} no contiene \`models\` como array; ejecuta "npm run prepare:world".`);
+    throw new Error(`${label} no contiene \`models\` como array; ejecuta "npm run prepare:world -- <export.json>".`);
   }
 
   return { document: data.document, models: data.models };
