@@ -1,80 +1,114 @@
-# Despliegue en Cloudflare Pages
+# Despliegue en Cloudflare
 
-## Estado actual
+## Arquitectura de despliegue
 
-**No hay configuración de Cloudflare versionada actualmente en este repositorio.** No existe un
-`wrangler.toml` activo ni un proyecto/dominio creado por este repositorio.
-`cloudflare/wrangler.pages.example.toml` es **solo una plantilla de ejemplo** con placeholders
-(`<PROJECT_NAME>`, `<DIST_PUBLIC_OR_DIST_STUDIO>`); no se usa durante los builds ni los despliegues.
-Los despliegues se hacen por *Direct Upload* con `npx wrangler pages deploy`.
+| Destino | Tecnología | Configuración activa | Directorio publicado | Acceso |
+| --- | --- | --- | --- | --- |
+| WORLD público (`/`, `/index.html`) | Cloudflare Workers + Static Assets | `wrangler.jsonc` en la raíz | **solo** `./dist-public` | Público, sin Cloudflare Access |
+| STUDIO y USUARIO (`/studio.html`, `/usuario`) | Cloudflare Pages (Direct Upload) | sin archivo Wrangler en la raíz | `./dist-studio` | Host privado protegido con Cloudflare Access |
 
-La cuenta del usuario debe tener **DOS proyectos/hosts distintos**, creados o identificados desde
-el dashboard de Cloudflare (el usuario decide los nombres):
+`wrangler.jsonc` es la **única** configuración activa de Wrangler y pertenece al WORLD público:
 
-1. **Público**: WORLD, sin Cloudflare Access.
-2. **Privado**: STUDIO, protegido con Cloudflare Access.
+```jsonc
+{
+  "name": "tumeremo-world",
+  "compatibility_date": "2026-11-25",
+  "assets": {
+    "directory": "./dist-public"
+  }
+}
+```
 
-## Por qué STUDIO necesita su propio host
+Es una configuración *assets-only*: no tiene `main`, ni binding de assets, ni rutas. El WORLD es de
+solo lectura; no ejecuta código de STUDIO ni sirve un fallback SPA que pudiera devolver `index.html`
+para rutas privadas. No hay `routes`/`route` en el archivo: el dominio o la ruta se asocian en el
+dashboard de Cloudflare.
 
-STUDIO y USUARIO usan rutas reales: `/studio.html` y `/usuario`. Cloudflare Access las ve y puede
-protegerlas en el borde; por eso debe configurarse sobre **un host privado dedicado** (el usuario
-elige el nombre, por ejemplo `studio.<dominio>`). No publicar `dist-studio` en el host público.
-No hay alias `#/studio`, `#editor`, `/studio` ni `/usuario/editor`: el primero es un fragmento sin
-lógica y los demás no forman parte de la arquitectura.
+La existencia de este archivo impide que Wrangler ejecute su configuración automática (que es la que
+generó un `assets` sin `directory`). **No** ejecutes `wrangler setup`, `wrangler init`,
+`wrangler deploy <directorio>` ni `wrangler deploy --assets ...` en la raíz: usa siempre
+`npm run deploy:public`, que pasa `--config wrangler.jsonc` y no argumentos de directorio.
 
-## Datos y secretos que debe proporcionar el usuario
+## Qué configurar en Cloudflare
 
-No hay valores por defecto ni credenciales inventadas en el repositorio. El usuario debe indicar:
+1. **Worker público `tumeremo-world`.** Se crea con el primer despliegue o desde *Workers & Pages*;
+   el nombre debe coincidir con `wrangler.jsonc`. No es un proyecto Pages.
+2. **Dominio del WORLD.** En el Worker, añade el dominio personalizado (o una ruta) para el host
+   público y deja el DNS proxied por Cloudflare. No añadas rutas que sirvan `/studio.html` ni
+   `/usuario` desde este Worker.
+3. **Acceso público.** No hay política de Access sobre el host público.
+4. **Token de API (variable de entorno, nunca versionada).** Para el Worker:
+   `CLOUDFLARE_ACCOUNT_ID` y `CLOUDFLARE_API_TOKEN` con permisos de Workers
+   (*Workers Scripts:Edit* y *Account Settings:Read*, o la plantilla *Edit Cloudflare Workers*).
+5. **Proyecto Pages privado para STUDIO.** Crea un proyecto Pages distinto y una política de
+   **Cloudflare Access** sobre su host (por ejemplo `studio.<dominio>`). Necesitas
+   `CF_PAGES_PROJECT_STUDIO` y un token con *Pages:Edit*. Sube `dist-studio/`, que incluye
+   `_headers` (`no-store` y cabeceras de endurecimiento) y `_redirects` (`/usuario` → `studio.html`
+   con rewrite 200; rutas no oficiales → 404). El token y el ID se entregan en la sesión; no se
+   escriben en archivos versionados.
+6. **Dominio de STUDIO y `VITE_PUBLIC_WORLD_URL`.** Asocia el dominio privado y usa la URL absoluta
+   del WORLD al compilar STUDIO; no se deriva del host de STUDIO.
+7. **Workers Builds (opcional).** Si importas el repositorio desde el dashboard, Wrangler detectará
+   `wrangler.jsonc` y no creará una configuración automática. Configura build
+   `npm run build:public` y deploy `npm run deploy:public`, con raíz del repositorio. Para el host
+   privado, compila `VITE_PUBLIC_WORLD_URL=<url> npm run build:studio` y sube `dist-studio/` al
+   proyecto Pages separado.
 
-| Dato / secreto | Uso |
+## Variables de entorno
+
+| Nombre | Uso |
 | --- | --- |
-| Nombre del proyecto Pages público | `CF_PAGES_PROJECT_PUBLIC` |
-| Nombre del proyecto Pages privado (STUDIO) y su host | `CF_PAGES_PROJECT_STUDIO` y la configuración del host en Cloudflare |
-| Dominio(s) que se asociarán a cada proyecto | DNS / dominios personalizados en el dashboard |
-| URL absoluta del WORLD público | `VITE_PUBLIC_WORLD_URL`, requerida por `build:studio` para «Abrir WORLD»; no se deriva del host de STUDIO |
-| Permiso para crear/configurar una aplicación y política de **Cloudflare Access** sobre el host de STUDIO | Protección del editor |
-| `CLOUDFLARE_ACCOUNT_ID` (ID de cuenta) | Wrangler necesita la cuenta destino |
-| `CLOUDFLARE_API_TOKEN` con permiso **Pages:Edit** | Wrangler necesita subir los archivos |
+| `CLOUDFLARE_ACCOUNT_ID` | Cuenta destino de Wrangler (obligatoria para ambos despliegues). |
+| `CLOUDFLARE_API_TOKEN` | Token para Workers (público) y Pages (privado); no versionar. |
+| `CF_PAGES_PROJECT_STUDIO` | Nombre del proyecto Pages privado (STUDIO). |
+| `VITE_PUBLIC_WORLD_URL` | URL absoluta del WORLD, requerida por `build:studio`. |
 
-El token y el ID de cuenta se entregan como variables de entorno de la sesión; **no se escriben en
-archivos versionados**. Si se va a purgar caché por API, también se necesita el `ZONE_ID` del
-dominio (o hacer la purga desde el dashboard).
+Ya no existe `CF_PAGES_PROJECT_PUBLIC`: el WORLD público se despliega como Worker con el nombre fijo
+`tumeremo-world` de `wrangler.jsonc`.
 
 ## Comandos
 
-El mundo publicado `data/world.public.json` se genera con el export real de STUDIO y debe estar
-versionado antes de desplegar. Si falta o no coincide con el export, `verify:world` y
-`build:public` fallan con un mensaje claro (no hay datos vacíos ni fallbacks).
-
 ```bash
 npm run prepare:world -- <ruta-al-export-de-STUDIO.json>   # genera data/world.public.json
-npm run check:all       # typecheck + verify:world + build:public + build:studio
+npm run check:all                                          # incluye verify:wrangler
 export CLOUDFLARE_ACCOUNT_ID='<ID_DE_CUENTA>'
-export CLOUDFLARE_API_TOKEN='<TOKEN_CON_PAGES_EDIT>'
-export CF_PAGES_PROJECT_PUBLIC='<NOMBRE_PROYECTO_PUBLICO>'
-export CF_PAGES_PROJECT_STUDIO='<NOMBRE_PROYECTO_STUDIO>'
-export VITE_PUBLIC_WORLD_URL='https://<DOMINIO_PUBLICO>/'   # la usa build:studio
+export CLOUDFLARE_API_TOKEN='<TOKEN>'
+export CF_PAGES_PROJECT_STUDIO='<NOMBRE_PROYECTO_PRIVADO>'
+export VITE_PUBLIC_WORLD_URL='https://<DOMINIO_PUBLICO>/'
+
+npm run deploy:public   # build:public + wrangler deploy --config wrangler.jsonc
 npm run build:studio    # falla si falta VITE_PUBLIC_WORLD_URL
-npm run deploy:public   # sube dist-public/ al proyecto Pages público
-npm run deploy:studio   # sube dist-studio/ al proyecto Pages privado
+npm run deploy:studio   # Pages Direct Upload de dist-studio/
 ```
 
-Cada build genera un único HTML autocontenido:
+`npm run deploy:public` ejecuta primero `npm run build:public`, verifica `dist-public/` con
+`verify:bundle` y comprueba que `wrangler.jsonc` tenga `name=tumeremo-world` y
+`assets.directory=./dist-public` antes de llamar a Wrangler. `npm run verify:wrangler` puede
+ejecutarse por separado y forma parte de `check:all`.
 
-- `build:public` → `dist-public/index.html` (define inyectado con el documento y los modelos públicos).
-- `build:studio` → `dist-studio/studio.html`, `_headers` (copiado desde `cloudflare/_headers.studio`) y `_redirects` (copiado desde `cloudflare/_redirects.studio`): `/usuario` se sirve con el HTML privado y las rutas no oficiales devuelven 404.
+Cada build genera un HTML autocontenido:
 
-`_headers` envía `Cache-Control: no-store` y cabeceras de endurecimiento para STUDIO; **no**
-sustituye a la política de Access, que se configura en el dashboard sobre el host real.
-El despliegue usa siempre `--branch=main`.
+- `build:public` → `dist-public/index.html`: WORLD con el documento y los modelos públicos inyectados.
+- `build:studio` → `dist-studio/studio.html`, `_headers` y `_redirects`: STUDIO/USUARIO privados.
+
+`dist-public/` no contiene `studio.html`, `_headers`, `_redirects` ni marcadores del editor.
+`dist-studio/` no se publica en el Worker bajo ninguna circunstancia.
 
 ## Rollback y caché
 
-- **Rollback**: en el dashboard de Cloudflare Pages, abrir el proyecto afectado → *Deployments* →
-  seleccionar un despliegue anterior → *Rollback* / promoverlo a producción. Hacerlo por separado
-  en el proyecto público y en el de STUDIO.
-- **Purga de caché**: si tras un despliegue o rollback se sigue sirviendo HTML antiguo, en el
-  dashboard de Cloudflare usar *Caching → Configuration → Purge Everything* para la zona del
-  dominio afectado (o purgar solo la URL concreta). Alternativamente, usar la API de purga de
-  caché con `CLOUDFLARE_API_TOKEN` y el `ZONE_ID` del dominio. El host de STUDIO debe devolver
-  `no-store`, pero la purga puede ser necesaria para el contenido ya cacheado.
+- **WORLD (Worker):** *Workers & Pages → tumeremo-world → Versions* → seleccionar una versión anterior
+  y promoverla a producción.
+- **STUDIO (Pages):** *Deployments* → seleccionar un despliegue anterior → *Rollback*.
+- **Caché:** si se sirve HTML antiguo, purgar la zona del dominio desde *Caching → Configuration →
+  Purge Everything* (o solo la URL concreta). El host privado debe devolver `no-store`, aunque la
+  purga puede ser necesaria para contenido ya cacheado.
+
+## Archivos que deben subirse a GitHub
+
+Versionar: `wrangler.jsonc`, `package.json`, `package-lock.json`, `.gitignore`,
+`scripts/` (incluido `verify-wrangler.mjs`), `cloudflare/README.md`, `README.md` y
+`data/world.public.json`.
+
+**No** versionar ni subir: `dist-public/`, `dist-studio/`, `.wrangler/`, `.dev.vars`, tokens, IDs de
+cuenta ni credenciales. Los artefactos se generan en cada despliegue con `npm run build:public` (y
+`npm run build:studio` para el host privado).

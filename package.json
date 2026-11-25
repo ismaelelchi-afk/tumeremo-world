@@ -28,8 +28,9 @@
     "prepare:world": "node scripts/prepare-public-world.mjs",
     "verify:world": "node scripts/verify-world.mjs",
     "verify:bundle": "node scripts/verify-bundle.mjs",
-    "check:all": "npm run typecheck && npm run verify:world && npm run build:public && npm run build:studio && npm run verify:bundle -- dist-public && npm run verify:bundle -- dist-studio",
-    "deploy:public": "node scripts/deploy-cloudflare.mjs public",
+    "verify:wrangler": "node scripts/verify-wrangler.mjs",
+    "check:all": "npm run typecheck && npm run verify:world && npm run build:public && npm run verify:wrangler && npm run build:studio && npm run verify:bundle -- dist-public && npm run verify:bundle -- dist-studio",
+    "deploy:public": "npm run build:public && node scripts/deploy-cloudflare.mjs public",
     "deploy:studio": "node scripts/deploy-cloudflare.mjs studio"
   },
   "dependencies": {

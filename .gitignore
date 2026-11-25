@@ -56,6 +56,11 @@ venv/
 .idea/
 *.sublime-workspace
 
+# Estado local de Wrangler (la configuración activa wrangler.jsonc SÍ se versiona)
+.wrangler/
+.dev.vars*
+!.dev.vars.example
+
 # Sistema operativo
 .DS_Store
 .DS_Store?

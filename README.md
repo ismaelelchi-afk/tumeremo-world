@@ -99,9 +99,12 @@ El servidor de desarrollo se inicia en `http://localhost:5175` y escucha en `0.0
 | `npm run verify:world` | Verifica el mundo publicado (o informa del bloqueo si falta el export). |
 | `npm run build` / `npm run build:public` | Genera `dist-public/index.html`: WORLD de solo lectura, sin editor. |
 | `VITE_PUBLIC_WORLD_URL=<url> npm run build:studio` | Genera `dist-studio/studio.html` + `_headers`: STUDIO privado. La URL pública de «Abrir WORLD» es obligatoria. |
-| `npm run check:all` | Typecheck + verificación del mundo + ambos builds. |
+| `npm run verify:wrangler` | Comprueba que `wrangler.jsonc` publica solo `./dist-public` y que no hay artefactos privados en el bundle. |
+| `npm run check:all` | Typecheck + verificación del mundo + ambos builds + verificación de Wrangler. |
 | `npm run typecheck` | Comprueba TypeScript sin emitir archivos. |
 | `npm run preview -- --outDir dist-public` | Sirve localmente el artefacto público (usa `--outDir dist-studio` para STUDIO). |
+| `npm run deploy:public` | Ejecuta `build:public` y despliega `dist-public/` como Worker `tumeremo-world` (Workers Static Assets). |
+| `npm run deploy:studio` | Despliega `dist-studio/` al proyecto Pages privado (requiere las variables de Cloudflare). |
 
 ## Rutas
 
@@ -112,7 +115,7 @@ El servidor de desarrollo se inicia en `http://localhost:5175` y escucha en `0.0
 | `/usuario` (bundle privado) | Vista privada del mismo borrador y GLB de STUDIO, con elementos no publicados. |
 | `#/item/<kind>/<id>` | Fragmento dentro de WORLD y de `/usuario`: selección compartible (restaura cámara). No es una ruta del servidor. |
 
-No existen alias `#/studio`, `#editor`, `/studio` ni `/usuario/editor`. El artefacto público `dist-public/index.html` **no contiene STUDIO**, no importa el editor y no escribe en `localStorage`/IndexedDB. El STUDIO se publica por separado en otro host, protegido por autenticación real en el borde (Cloudflare Access); consulta `cloudflare/README.md`.
+No existen alias `#/studio`, `#editor`, `/studio` ni `/usuario/editor`. El artefacto público `dist-public/index.html` **no contiene STUDIO**, no importa el editor y no escribe en `localStorage`/IndexedDB. El WORLD se despliega como Worker de Cloudflare con Static Assets (`wrangler.jsonc` → `./dist-public`). El STUDIO se publica por separado en otro host, protegido por autenticación real en el borde (Cloudflare Access); consulta `cloudflare/README.md`.
 
 > El build público falla a propósito si no existe `data/world.public.json`: nunca se generan datos vacíos ni se sustituye el mundo editado por la semilla.
 
