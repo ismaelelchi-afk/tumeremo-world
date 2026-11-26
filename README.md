@@ -67,6 +67,29 @@ Si el borrador local está corrupto o no supera la validación, se conserva inta
 
 STUDIO no usa `window.confirm`: las bajas se confirman en la propia interfaz y las acciones sin botón visible (teclado, restaurar) usan un diálogo controlado. `saveNow()` devuelve si el guardado funcionó; si falla, los cambios siguen en memoria y se ofrece reintentar.
 
+## SEO y rendimiento público
+
+La marca pública de SEO y redes sociales es **Tumeremo Worlds**. La cadena histórica de la interfaz, `TUMEREMO WORLD`, se conserva y se registra como `alternateName` en los datos estructurados. No hay rediseño de la interfaz ni cambios en la escena 3D.
+
+La URL canónica candidata es `https://tumeremo.com/`. Es solo un **candidato** hasta verificar el dominio personalizado o la ruta reales en Cloudflare: en este trabajo no se hicieron cambios de DNS ni de dominio. `PUBLIC_SITE_URL` la reemplaza en tiempo de build; el build público usa el candidato por defecto. STUDIO sigue requiriendo `VITE_PUBLIC_WORLD_URL` con la URL pública real. Cloudflare canonicaliza `/index.html` a `/` y la etiqueta canonical apunta siempre a `/`.
+
+El build público incorpora `robots.txt`, `sitemap.xml`, `favicon.svg`, `favicon.png`, `og-image.png` y `404.html`. `wrangler.jsonc` sigue siendo *assets-only* y añade `assets.not_found_handling = "404-page"`: las rutas públicas desconocidas devuelven la página 404 real, nunca `index.html`, y no hay fallback SPA. Los archivos SEO se copian solo a `dist-public`; `vite.studio.config.ts` define `publicDir: false`, por lo que `dist-studio` sigue siendo exactamente `studio.html` + `_headers` + `_redirects`. STUDIO y USUARIO mantienen `noindex` en metadatos y `X-Robots-Tag: noindex,nofollow`; el host privado sigue necesitando Cloudflare Access (no configurable desde el repositorio).
+
+Los datos estructurados se limitan a `WebSite`, `WebApplication`, `WebPage` y `Place` (Tumeremo, Municipio Sifontes, Bolívar, Venezuela). No se publican `LocalBusiness`, `Review` ni valoraciones para los comercios actuales: todos los comercios públicos publicados tienen `origin: "demo"` y NAP vacío. Las futuras fichas de entidades exigirán una lista de permitidos pública y explícita con `origin != demo`, `published`, `visible`, `seoIndex` y `schemaEligible`, NAP/geo/contacto verificados, slug estable y procedencia. No se infieren negocios reales a partir de etiquetas de categoría ni de datos de demostración; la cobertura de teselas del mapa no se usa como área de servicio de un negocio.
+
+El build público inyecta solo los modelos GLB personalizados referenciados por `data/world.public.json.document`; `data/world.public.json` y `scripts/prepare-public-world.mjs` no cambian. El GLB sin usar de 9,18 MB (base64 ~12,24 MB) que antes se inyectaba deja de descargarse y decodificarse. Las definiciones de modelos *builtin* y el comportamiento 3D no se tocan.
+
+### Verificación
+
+```bash
+VITE_PUBLIC_WORLD_URL='https://tumeremo.com/' PUBLIC_SITE_URL='https://tumeremo.com/' npm run check:all
+npm run verify:world -- --bundle dist-public/index.html
+npm run verify:seo
+npm run verify:wrangler
+```
+
+`scripts/verify-seo.mjs` comprueba metadatos, canonical, OG/Twitter, JSON-LD, robots, sitemap, favicon/imagen OG, 404 y el `noindex` privado; `check:all` lo incluye. `deploy:public` exige `PUBLIC_SITE_URL` y encadena `verify:wrangler` y `verify:seo` antes de desplegar; el rollback se mantiene promoviendo una versión anterior del Worker. Siguen pendientes de Google la inspección de URL en Search Console, el envío del sitemap, la Rich Results Test y los datos de campo de Core Web Vitals. No se afirma que Google haya indexado el sitio.
+
 ## Tecnologías
 
 - React 19 y TypeScript 5.9
@@ -76,9 +99,13 @@ STUDIO no usa `window.confirm`: las bajas se confirman en la propia interfaz y l
 - Three.js 0.187
 - Gestión de idioma y formatos propia, sin dependencias adicionales
 
+### Aviso de `npm audit` en MapLibre GL JS
+
+`npm audit` sigue marcando `maplibre-gl@5.24.1` como crítico por `CVE-2026-85061` / `GHSA-jrc7-96c5-q579`. El rango publicado (`<= 6.4.0`) no refleja el *backport* del parche incluido en `5.24.1` (2026-11-11), verificado en el bundle instalado. Se conserva la versión 5.24.1 y no se desactivan las alertas de auditoría. Detalles, evidencias y condiciones de revisión: [`docs/seguridad/maplibre-gl-audit.md`](docs/seguridad/maplibre-gl-audit.md).
+
 ## Requisitos
 
-- Node.js `^20.19.0 || >=22.12.0`
+- Node.js `>=22.12.0`
 - npm
 - Navegador moderno con soporte WebGL
 - Conexión a internet para cargar las teselas vectoriales y las fuentes de OpenFreeMap
@@ -97,13 +124,14 @@ El servidor de desarrollo se inicia en `http://localhost:5175` y escucha en `0.0
 | `npm run dev` | Inicia el servidor de desarrollo. STUDIO privado en `/studio.html`. |
 | `npm run prepare:world -- <export.json>` | Valida el export de STUDIO y genera `data/world.public.json`. |
 | `npm run verify:world` | Verifica el mundo publicado (o informa del bloqueo si falta el export). |
-| `npm run build` / `npm run build:public` | Genera `dist-public/index.html`: WORLD de solo lectura, sin editor. |
-| `VITE_PUBLIC_WORLD_URL=<url> npm run build:studio` | Genera `dist-studio/studio.html` + `_headers`: STUDIO privado. La URL pública de «Abrir WORLD» es obligatoria. |
-| `npm run verify:wrangler` | Comprueba que `wrangler.jsonc` publica solo `./dist-public` y que no hay artefactos privados en el bundle. |
-| `npm run check:all` | Typecheck + verificación del mundo + ambos builds + verificación de Wrangler. |
+| `PUBLIC_SITE_URL=<url> npm run build` / `npm run build:public` | Genera `dist-public`: WORLD de solo lectura, sin editor. `PUBLIC_SITE_URL` fija el canonical; por defecto se usa el candidato. |
+| `VITE_PUBLIC_WORLD_URL=<url> npm run build:studio` | Genera `dist-studio/studio.html` + `_headers` + `_redirects`: STUDIO privado. La URL pública de «Abrir WORLD» es obligatoria. |
+| `npm run verify:wrangler` | Comprueba que `wrangler.jsonc` publica solo `./dist-public`, con `not_found_handling = "404-page"`, y que no hay artefactos privados en el bundle. |
+| `npm run verify:seo` | Verifica metadatos, canonical, OG/Twitter, JSON-LD, robots, sitemap, favicon/imagen OG, 404 y las protecciones `noindex` privadas. |
+| `npm run check:all` | Typecheck + verificación del mundo + ambos builds + verificaciones de Wrangler y SEO. |
 | `npm run typecheck` | Comprueba TypeScript sin emitir archivos. |
 | `npm run preview -- --outDir dist-public` | Sirve localmente el artefacto público (usa `--outDir dist-studio` para STUDIO). |
-| `npm run deploy:public` | Ejecuta `build:public` y despliega `dist-public/` como Worker `tumeremo-world` (Workers Static Assets). |
+| `PUBLIC_SITE_URL=<url> npm run deploy:public` | Exige `PUBLIC_SITE_URL`, ejecuta `build:public`, `verify:wrangler` y `verify:seo` antes de desplegar `dist-public/` como Worker `tumeremo-world`. Nunca llames a `wrangler deploy` directamente. |
 | `npm run deploy:studio` | Despliega `dist-studio/` al proyecto Pages privado (requiere las variables de Cloudflare). |
 
 ## Rutas
@@ -115,7 +143,7 @@ El servidor de desarrollo se inicia en `http://localhost:5175` y escucha en `0.0
 | `/usuario` (bundle privado) | Vista privada del mismo borrador y GLB de STUDIO, con elementos no publicados. |
 | `#/item/<kind>/<id>` | Fragmento dentro de WORLD y de `/usuario`: selección compartible (restaura cámara). No es una ruta del servidor. |
 
-No existen alias `#/studio`, `#editor`, `/studio` ni `/usuario/editor`. El artefacto público `dist-public/index.html` **no contiene STUDIO**, no importa el editor y no escribe en `localStorage`/IndexedDB. El WORLD se despliega como Worker de Cloudflare con Static Assets (`wrangler.jsonc` → `./dist-public`). El STUDIO se publica por separado en otro host, protegido por autenticación real en el borde (Cloudflare Access); consulta `cloudflare/README.md`.
+No existen alias `#/studio`, `#editor`, `/studio` ni `/usuario/editor`. El artefacto público `dist-public/index.html` **no contiene STUDIO** ni importa el editor; las únicas cadenas `IndexedDB`/`TOKEN` detectadas proceden de catálogos i18n y de la especificación de MapLibre, no de las etiquetas SEO ni de credenciales. El WORLD se despliega como Worker de Cloudflare con Static Assets (`wrangler.jsonc` → `./dist-public`). Con `assets.not_found_handling = "404-page"`, las rutas desconocidas devuelven `404.html`, nunca `index.html`. El STUDIO se publica por separado en otro host, protegido por autenticación real en el borde (Cloudflare Access); consulta `cloudflare/README.md`.
 
 > El build público falla a propósito si no existe `data/world.public.json`: nunca se generan datos vacíos ni se sustituye el mundo editado por la semilla.
 

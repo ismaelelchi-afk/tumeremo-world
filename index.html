@@ -7,11 +7,138 @@
       content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     />
     <meta name="theme-color" content="#0a1014" />
-    <meta name="description" content="TUMEREMO WORLD — el mundo digital híbrido de Tumeremo, Venezuela: mapa real, perspectiva 3D, edificios y comercios interactivos." />
-    <title>TUMEREMO WORLD</title>
+    <meta name="robots" content="index,follow" />
+    <title>Tumeremo Worlds | Mapa digital 3D de Tumeremo, Municipio Sifontes, Bolívar</title>
+    <meta
+      name="description"
+      content="Explora Tumeremo, Venezuela: mapa real y mundo digital 3D del Municipio Sifontes, Bolívar. Directorio interactivo de lugares y comercios; los elementos de demostración son ficticios."
+    />
+
+    <link rel="canonical" href="__PUBLIC_SITE_URL__" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="alternate icon" href="/favicon.png" type="image/png" sizes="any" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Tumeremo Worlds" />
+    <meta property="og:title" content="Tumeremo Worlds — Mapa digital 3D de Tumeremo, Municipio Sifontes, Bolívar" />
+    <meta
+      property="og:description"
+      content="Explora Tumeremo, Venezuela: mapa real y mundo digital 3D del Municipio Sifontes, Bolívar. Directorio interactivo de lugares y comercios; los elementos de demostración son ficticios."
+    />
+    <meta property="og:url" content="__PUBLIC_SITE_URL__" />
+    <meta property="og:image" content="__PUBLIC_SITE_URL__og-image.png" />
+    <meta property="og:image:alt" content="Mapa digital 3D de Tumeremo, Municipio Sifontes, Bolívar, Venezuela" />
+    <meta property="og:locale" content="es_VE" />
+    <meta property="og:locale:alternate" content="pt_BR" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Tumeremo Worlds — Mapa digital 3D de Tumeremo, Municipio Sifontes, Bolívar" />
+    <meta
+      name="twitter:description"
+      content="Explora Tumeremo, Venezuela: mapa real y mundo digital 3D del Municipio Sifontes, Bolívar."
+    />
+    <meta name="twitter:image" content="__PUBLIC_SITE_URL__og-image.png" />
+    <meta name="twitter:image:alt" content="Mapa digital 3D de Tumeremo, Municipio Sifontes, Bolívar, Venezuela" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebSite",
+            "@id": "__PUBLIC_SITE_URL__#website",
+            "url": "__PUBLIC_SITE_URL__",
+            "name": "Tumeremo Worlds",
+            "alternateName": "TUMEREMO WORLD",
+            "description": "Mapa real y mundo digital 3D de Tumeremo, Municipio Sifontes, Bolívar, Venezuela.",
+            "inLanguage": ["es", "pt-BR"]
+          },
+          {
+            "@type": "WebApplication",
+            "@id": "__PUBLIC_SITE_URL__#webapp",
+            "name": "Tumeremo Worlds",
+            "url": "__PUBLIC_SITE_URL__",
+            "operatingSystem": "Web",
+            "isAccessibleForFree": true,
+            "description": "Mapa interactivo con capas digitales superpuestas sobre la geografía real de Tumeremo.",
+            "isPartOf": { "@id": "__PUBLIC_SITE_URL__#website" },
+            "about": { "@id": "__PUBLIC_SITE_URL__#tumeremo" }
+          },
+          {
+            "@type": "WebPage",
+            "@id": "__PUBLIC_SITE_URL__#webpage",
+            "url": "__PUBLIC_SITE_URL__",
+            "name": "Tumeremo Worlds — Mapa digital 3D de Tumeremo, Municipio Sifontes, Bolívar",
+            "description": "Directorio interactivo de lugares, construcciones y comercios de demostración de Tumeremo, Venezuela.",
+            "isPartOf": { "@id": "__PUBLIC_SITE_URL__#website" },
+            "about": { "@id": "__PUBLIC_SITE_URL__#tumeremo" },
+            "inLanguage": "es"
+          },
+          {
+            "@type": "Place",
+            "@id": "__PUBLIC_SITE_URL__#tumeremo",
+            "name": "Tumeremo",
+            "description": "Tumeremo, Parroquia Tumeremo, Municipio Sifontes, Bolívar, Venezuela.",
+            "address": {
+              "@type": "PostalAddress",
+              "addressLocality": "Tumeremo",
+              "addressRegion": "Bolívar",
+              "addressCountry": "VE"
+            },
+            "geo": {
+              "@type": "GeoCoordinates",
+              "latitude": 7.29904,
+              "longitude": -61.50442
+            },
+            "containedInPlace": {
+              "@type": "AdministrativeArea",
+              "name": "Municipio Sifontes",
+              "containedInPlace": {
+                "@type": "AdministrativeArea",
+                "name": "Bolívar",
+                "containedInPlace": {
+                  "@type": "Country",
+                  "name": "Venezuela"
+                }
+              }
+            }
+          }
+        ]
+      }
+    </script>
   </head>
   <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <noscript>
+      <section>
+        <h1>Tumeremo Worlds: mapa digital 3D de Tumeremo, Municipio Sifontes, Bolívar</h1>
+        <p>
+          Tumeremo, Venezuela. Explora un mapa real con calles y lugares de OpenStreetMap y una
+          capa digital superpuesta de construcciones, objetos y comercios de demostración.
+        </p>
+        <h2>Mapa real con capas digitales</h2>
+        <p>
+          Las calles y los lugares proceden de OpenStreetMap y se sirven con teselas vectoriales
+          de OpenFreeMap. Las construcciones y los comercios marcados como demostración son
+          ficticios y sirven para probar la plataforma; no alteran la geografía original.
+        </p>
+        <h2>Cobertura y límites de los datos</h2>
+        <p>
+          La cobertura medida usa teselas z14, unas 20 teselas (aproximadamente 12 × 10 km)
+          alrededor de la ciudad. En la región medida hay alrededor de 630 tramos viales
+          mapeados en OSM, 140 puntos de interés con nombre y 30 polígonos de edificios.
+          Esta versión no incluye relieve (terreno).
+        </p>
+        <h2>Cómo explorar el directorio</h2>
+        <p>
+          Busca y filtra lugares, construcciones y comercios; abre una ficha para ver sus
+          detalles y vuelve al centro de Tumeremo. Los comercios de demostración no son
+          negocios reales ni contactos comerciales.
+        </p>
+      </section>
+    </noscript>
+    <main>
+      <div id="root"></div>
+      <script type="module" src="/src/main.tsx"></script>
+    </main>
   </body>
 </html>

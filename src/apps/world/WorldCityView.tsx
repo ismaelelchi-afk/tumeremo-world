@@ -436,17 +436,19 @@ export function WorldCityView({
       <div ref={headerRef} className="pointer-events-none absolute inset-x-0 top-0 z-40">
         <div className="pointer-events-auto flex flex-wrap items-start gap-2 px-3 pt-[calc(var(--safe-t)+12px)] sm:flex-nowrap sm:gap-4 sm:px-4">
           <div className="order-1 flex shrink-0 flex-col items-start gap-1.5">
-            <button
-              className="flex min-h-11 items-center gap-2.5 rounded-2xl bg-white px-2.5 py-1.5 shadow-lg shadow-slate-900/10 ring-1 ring-slate-200 transition active:scale-[0.98]"
-              onClick={() => setAbout(true)}
-              aria-label={t('world.aboutAria')}
-            >
-              <LogoMark size={26} />
-              <span className="text-left leading-none">
-                <span className="block text-[13px] font-extrabold tracking-[0.2em] text-[#0b3b2e]">TUMEREMO</span>
-                <span className="block pt-[3px] text-[10px] font-bold tracking-[0.34em] text-[#e0a106]">WORLD</span>
-              </span>
-            </button>
+            <h1 className="m-0 font-normal" aria-label="Tumeremo Worlds">
+              <button
+                className="flex min-h-11 items-center gap-2.5 rounded-2xl bg-white px-2.5 py-1.5 shadow-lg shadow-slate-900/10 ring-1 ring-slate-200 transition active:scale-[0.98]"
+                onClick={() => setAbout(true)}
+                aria-label={t('world.aboutAria')}
+              >
+                <LogoMark size={26} />
+                <span className="text-left leading-none">
+                  <span className="block text-[13px] font-extrabold tracking-[0.2em] text-[#0b3b2e]">TUMEREMO</span>
+                  <span className="block pt-[3px] text-[10px] font-bold tracking-[0.34em] text-[#e0a106]">WORLD</span>
+                </span>
+              </button>
+            </h1>
           </div>
 
           {!hideTopSearch && (

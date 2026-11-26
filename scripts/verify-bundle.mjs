@@ -71,6 +71,18 @@ function readHtml(filePath, errors) {
   return html;
 }
 
+/** Detecta <meta name="robots" content="noindex..."> con cualquier orden de atributos. */
+function hasRobotsNoindex(html) {
+  const metaTags = html.match(/<meta\b[^>]*>/gi) ?? [];
+  return metaTags.some((tag) => {
+    const isRobots = /\bname\s*=\s*(?:"robots"|'robots'|robots)(?=[\s/>])/i.test(tag);
+    if (!isRobots) return false;
+    const content = tag.match(/\bcontent\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s/>]+))/i);
+    const value = content ? (content[1] ?? content[2] ?? content[3] ?? '') : '';
+    return /\bnoindex\b/i.test(value);
+  });
+}
+
 function verifyPublic(distDir, file) {
   const errors = [];
   const indexPath = path.join(distDir, 'index.html');
@@ -140,6 +152,9 @@ function verifyStudio(distDir, file) {
       } else {
         console.log(`  Marcadores presentes: ${hits.map(({ marker, count }) => `${marker}=${count}`).join(', ')} [OK]`);
       }
+      const hasNoindex = hasRobotsNoindex(html);
+      console.log(`  meta robots noindex: ${hasNoindex ? 'presente [OK]' : 'FALLO'}`);
+      if (!hasNoindex) errors.push('El HTML de STUDIO no contiene <meta name="robots" content="noindex">.');
     }
   }
 
@@ -149,8 +164,11 @@ function verifyStudio(distDir, file) {
   } else {
     const headers = readFileSync(headersPath, 'utf8');
     const hasNoStore = /no-store/i.test(headers);
-    console.log(`  _headers: presente; no-store: ${hasNoStore ? 'sí [OK]' : 'NO'}`);
+    const hasRobotsHeader = /x-robots-tag:\s*noindex,\s*nofollow/i.test(headers);
+    console.log(`  _headers: presente; no-store: ${hasNoStore ? 'sí [OK]' : 'FALLO'}`);
+    console.log(`  _headers X-Robots-Tag: noindex, nofollow: ${hasRobotsHeader ? 'sí [OK]' : 'FALLO'}`);
     if (!hasNoStore) errors.push('dist-studio/_headers no contiene "no-store".');
+    if (!hasRobotsHeader) errors.push('dist-studio/_headers no contiene "X-Robots-Tag: noindex, nofollow".');
   }
 
   const redirectsPath = path.join(distDir, '_redirects');

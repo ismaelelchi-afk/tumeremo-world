@@ -57,6 +57,9 @@ function copyStudioHostFiles(): Plugin {
 export default defineConfig({
   mode: "studio",
   appType: "mpa",
+  // Los activos SEO son exclusivos del WORLD: dist-studio solo contendrá
+  // studio.html, _headers y _redirects.
+  publicDir: false,
   plugins: [react(), tailwindcss(), viteSingleFile(), copyStudioHostFiles()],
   define: {
     __STUDIO_PUBLIC_WORLD_URL__: JSON.stringify(configuredWorldUrl),

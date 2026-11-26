@@ -74,11 +74,11 @@ function main() {
   }
   if (config.assets?.binding !== undefined) fail('assets.binding no debe estar: no hay código de Worker que lo consuma.');
   if (config.assets?.run_worker_first !== undefined) fail('assets.run_worker_first no debe estar: el WORLD no ejecuta Worker.');
-  if (config.assets?.not_found_handling === 'single-page-application') {
-    fail('assets.not_found_handling no puede ser "single-page-application": ocultaría rutas privadas sirviendo index.html.');
-  }
-  if (config.assets?.not_found_handling !== undefined && config.assets?.not_found_handling !== '404-page') {
-    fail(`assets.not_found_handling no reconocido: ${JSON.stringify(config.assets.not_found_handling)}.`);
+  const notFoundHandling = config.assets?.not_found_handling;
+  if (notFoundHandling !== '404-page') {
+    fail(`assets.not_found_handling debe ser exactamente "404-page" (se encontró ${JSON.stringify(notFoundHandling)}).`);
+  } else {
+    console.log('  not_found_handling: 404-page [OK]');
   }
 
   const serialized = JSON.stringify(config);
@@ -93,6 +93,12 @@ function main() {
     const files = walk(distDir);
     const indexPath = path.join(distDir, 'index.html');
     if (!files.includes(indexPath)) fail(`Falta ${PUBLIC_DIR_NAME}/index.html.`);
+    const notFoundPath = path.join(distDir, '404.html');
+    if (!existsSync(notFoundPath) || !statSync(notFoundPath).isFile()) {
+      fail(`Falta ${PUBLIC_DIR_NAME}/404.html (requerido por assets.not_found_handling = "404-page").`);
+    } else {
+      console.log(`  ${PUBLIC_DIR_NAME}/404.html: presente; archivo regular [OK]`);
+    }
     for (const file of files) {
       const relative = path.relative(distDir, file);
       if (FORBIDDEN_FILES.includes(relative) || FORBIDDEN_FILES.includes(path.basename(file))) {

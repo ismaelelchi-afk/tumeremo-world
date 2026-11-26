@@ -7,7 +7,7 @@ export const ptBR: Record<TranslationKey, string> = {
   'app.studio': 'TUMEREMO STUDIO',
   'app.user': 'TUMEREMO USUÁRIO',
   'app.description':
-    'TUMEREMO WORLD — o mundo digital híbrido de Tumeremo, Venezuela: mapa real, perspectiva 3D, edifícios e comércios interativos.',
+    'Explore Tumeremo, Venezuela: mapa real e mundo digital 3D do Município Sifontes, Bolívar. Diretório interativo de lugares e comércios; os elementos de demonstração são fictícios.',
   'app.studioDescription':
     'TUMEREMO STUDIO — editor do mundo digital híbrido de Tumeremo, Venezuela.',
   'app.userDescription':

@@ -8,7 +8,7 @@ export const es = {
   'app.studio': 'TUMEREMO STUDIO',
   'app.user': 'TUMEREMO USUARIO',
   'app.description':
-    'TUMEREMO WORLD — el mundo digital híbrido de Tumeremo, Venezuela: mapa real, perspectiva 3D, edificios y comercios interactivos.',
+    'Explora Tumeremo, Venezuela: mapa real y mundo digital 3D del Municipio Sifontes, Bolívar. Directorio interactivo de lugares y comercios; los elementos de demostración son ficticios.',
   'app.studioDescription':
     'TUMEREMO STUDIO — editor del mundo digital híbrido de Tumeremo, Venezuela.',
   'app.userDescription':

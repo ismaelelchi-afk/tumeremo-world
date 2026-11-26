@@ -2,6 +2,7 @@
   "name": "tumeremo-world",
   "compatibility_date": "2026-11-25",
   "assets": {
-    "directory": "./dist-public"
+    "directory": "./dist-public",
+    "not_found_handling": "404-page"
   }
 }

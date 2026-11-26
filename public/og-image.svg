@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" role="img" aria-label="Tumeremo Worlds, mapa digital 3D de Tumeremo">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07151c"/>
+      <stop offset="1" stop-color="#0d2c34"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.78" cy="0.28" r="0.55">
+      <stop offset="0" stop-color="#e8b34b" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#e8b34b" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse">
+      <path d="M60 0H0V60" fill="none" stroke="#8fd9c4" stroke-opacity="0.12" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#grid)"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+  <g transform="translate(910 300)">
+    <path d="M0-150c-66 0-120 52-120 117C-120 60 0 200 0 200S120 60 120-33C120-98 66-150 0-150Z" fill="#e8b34b" opacity="0.95"/>
+    <path d="M-48-62h96v34h-38v120h-30V-28h-28v-34Z" fill="#07151c"/>
+  </g>
+  <g font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">
+    <text x="86" y="248" fill="#7fd1b9" font-size="30" font-weight="700" letter-spacing="7">TUMEREMO WORLDS</text>
+    <text x="86" y="348" fill="#f2f6f8" font-size="74" font-weight="800">Mapa digital 3D</text>
+    <text x="86" y="430" fill="#f2f6f8" font-size="74" font-weight="800">de Tumeremo</text>
+    <text x="88" y="500" fill="#c8d6de" font-size="30">Municipio Sifontes · Bolívar · Venezuela</text>
+  </g>
+  <rect x="86" y="548" width="180" height="6" rx="3" fill="#e8b34b"/>
+</svg>
