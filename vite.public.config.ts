@@ -88,10 +88,19 @@ function projectReferencedModels(document: unknown, models: unknown[]): unknown[
   return projected;
 }
 
-/** Sustituye el dominio canónico en los archivos estáticos ya copiados al bundle. */
-function replacePublicSiteUrl(siteUrl: string): Plugin {
+/**
+ * Cierra el bundle público: sustituye la URL canónica y añade los globals del
+ * WORLD al index.html ya generado. Se hace al cerrar, y no con `define` ni en el
+ * pipeline de HTML de Vite, para que Rollup nunca cargue ~20 MB de JSON en su
+ * grafo. El bundle resultante expone exactamente los mismos globals que dev.
+ */
+function finalizePublicHtml(siteUrl: string, document: unknown, models: unknown[]): Plugin {
+  const json = (value: unknown) => JSON.stringify(value).replace(/</g, "\\u003c");
+  const script =
+    `window.__PUBLIC_WORLD_DOCUMENT__ = ${json(document)};\n` +
+    `window.__PUBLIC_WORLD_MODELS__ = ${json(models)};`;
   return {
-    name: "replace-public-site-url",
+    name: "finalize-public-html",
     apply: "build",
     closeBundle() {
       const outDir = path.resolve(__dirname, process.env.PUBLIC_OUT_DIR || "dist-public");
@@ -104,13 +113,20 @@ function replacePublicSiteUrl(siteUrl: string): Plugin {
           continue;
         }
         const before = fs.readFileSync(target, "utf8");
-        const after = before.split(SITE_URL_TOKEN).join(siteUrl);
+        let after = before.split(SITE_URL_TOKEN).join(siteUrl);
+        if (name === "index.html" && !after.includes("window.__PUBLIC_WORLD_DOCUMENT__ =")) {
+          const head = /<head\b[^>]*>/i.exec(after);
+          if (!head) throw new Error("No se encontró <head> en dist-public/index.html.");
+          const insertAt = head.index + head[0].length;
+          after = after.slice(0, insertAt) + `\n<script>${script}</script>` + after.slice(insertAt);
+        }
         if (after.includes(SITE_URL_TOKEN)) {
           throw new Error(`Quedó ${SITE_URL_TOKEN} sin sustituir en ${name}.`);
         }
         if (after !== before) fs.writeFileSync(target, after);
       }
       console.log(`[public] canonical: ${siteUrl}`);
+      console.log("[public] mundo inyectado en index.html");
     },
   };
 }
@@ -121,15 +137,16 @@ const injectedModels = projectReferencedModels(document, models);
 export default defineConfig({
   mode: "public",
   publicDir: path.resolve(__dirname, "public"),
-  plugins: [react(), tailwindcss(), viteSingleFile(), replacePublicSiteUrl(publicSiteUrl)],
+  plugins: [
+    react(),
+    tailwindcss(),
+    viteSingleFile(),
+    finalizePublicHtml(publicSiteUrl, document, injectedModels),
+  ],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),
     },
-  },
-  define: {
-    __PUBLIC_WORLD_DOCUMENT__: JSON.stringify(document),
-    __PUBLIC_WORLD_MODELS__: JSON.stringify(injectedModels),
   },
   build: {
     outDir: process.env.PUBLIC_OUT_DIR || "dist-public",

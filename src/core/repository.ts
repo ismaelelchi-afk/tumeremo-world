@@ -161,6 +161,9 @@ function fillBuilding(existing: CustomBuilding, canonical: CustomBuilding): Cust
     name: pick(existing.name, canonical.name),
     modelId: pick(existing.modelId, canonical.modelId),
     description: pick(existing.description, canonical.description),
+    ...(existing.category !== undefined || canonical.category !== undefined
+      ? { category: existing.category ?? canonical.category }
+      : {}),
     placeId: pick(existing.placeId, canonical.placeId),
     visible: pick(existing.visible, canonical.visible),
     origin: pick(existing.origin, canonical.origin),
@@ -497,6 +500,9 @@ export function validateDocumentDetailed(raw: unknown): { doc: WorldDocument | n
     if (paramsResult.repaired) note('building', id, 'validate.reason.invalidParams');
     const i18n = sanitizeLocalized(b.i18n);
     const animation = sanitizeAnimationOverrides(b.animation);
+    const category = isStr(b.category) && PLACE_CATEGORIES.includes(b.category as PlaceCategory)
+      ? (b.category as PlaceCategory)
+      : undefined;
     buildings.push({
       id,
       kind: 'building',
@@ -509,6 +515,7 @@ export function validateDocumentDetailed(raw: unknown): { doc: WorldDocument | n
       },
       params: paramsResult.params,
       description: isStr(b.description) ? b.description : '',
+      ...(category ? { category } : {}),
       placeId: isStr(b.placeId) ? b.placeId : null,
       visible: b.visible !== false,
       origin: b.origin === 'demo' ? 'demo' : 'studio',

@@ -180,14 +180,16 @@ export function WorldCityView({
     }
     for (const b of doc.buildings) {
       if (!b.visible || FEATURE_BUILDING_IDS.has(b.id)) continue;
+      const description = localizedText(b, 'description', lang);
       add({
         key: b.id,
         title: localizedText(b, 'name', lang),
-        subtitle: b.origin === 'demo' ? t('explore.buildingDemo') : t('explore.buildingPlain'),
+        subtitle: b.category ? placeCategoryLabel(b.category, lang) : b.origin === 'demo' ? t('explore.buildingDemo') : t('explore.buildingPlain'),
         group: 'buildings',
         icon: 'building',
         color: '#9fb4c7',
         sel: { kind: 'building', id: b.id },
+        description: description || undefined,
       });
     }
     for (const p of doc.places ?? []) {

@@ -12,10 +12,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 /**
- * Estado mutable del WORLD en desarrollo. «Actualizar WORLD» de STUDIO reemplaza
- * este objeto y reescribe data/world.public.json; el build público lee ese mismo archivo.
+ * Mundo leído al arrancar, usado por `define` en builds. En desarrollo, la vista pública
+ * relee `data/world.public.json` en cada petición: «Actualizar WORLD» escribe ese archivo.
  */
-let publicWorld = loadPublicWorld(process.env.PUBLIC_WORLD_DATA);
+const initialPublicWorld = loadPublicWorld(process.env.PUBLIC_WORLD_DATA);
 
 /**
  * Rutas oficiales: `/` y `/index.html` (WORLD), `/studio.html` (STUDIO) y
@@ -57,6 +57,57 @@ function officialRoutes(): Plugin {
   };
 }
 
+type UnknownRecord = Record<string, unknown>;
+
+function isRecord(value: unknown): value is UnknownRecord {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function modelIdsOf(bundle: unknown): string[] {
+  if (!isRecord(bundle)) return [];
+  const ids: string[] = [];
+  if (typeof bundle.id === 'string') ids.push(bundle.id);
+  if (Array.isArray(bundle.aliases)) {
+    for (const alias of bundle.aliases) if (typeof alias === 'string') ids.push(alias);
+  }
+  return ids;
+}
+
+/**
+ * STUDIO exporta los GLB desde IndexedDB. Si esa base está vacía en una sesión nueva,
+ * el export no trae `customModels` aunque el documento referencie modelos ya publicados.
+ * Reutilizamos solo los bundles publicados que faltan y que el documento necesita, sin
+ * tocar entidades ni modelos y sin reconstruir nada desde la semilla.
+ */
+function withPublishedModelBundles(input: unknown): unknown {
+  if (!isRecord(input)) return input;
+  const referenced = new Set<string>();
+  for (const key of ['buildings', 'objects']) {
+    const items = input[key];
+    if (!Array.isArray(items)) continue;
+    for (const item of items) {
+      if (isRecord(item) && typeof item.modelId === 'string') referenced.add(item.modelId);
+    }
+  }
+  if (!referenced.size) return input;
+
+  const provided = Array.isArray(input.customModels) ? input.customModels : [];
+  const providedIds = new Set<string>();
+  for (const bundle of provided) for (const id of modelIdsOf(bundle)) providedIds.add(id);
+
+  let published: { document: unknown; models: unknown[] };
+  try {
+    published = loadPublicWorld(process.env.PUBLIC_WORLD_DATA);
+  } catch {
+    return input;
+  }
+  const missing = published.models.filter((bundle) =>
+    modelIdsOf(bundle).some((id) => referenced.has(id) && !providedIds.has(id)),
+  );
+  if (!missing.length) return input;
+  return { ...input, customModels: [...provided, ...missing] };
+}
+
 /**
  * Endpoint exclusivo de `npm run dev`. Recibe el export actual de STUDIO, usa el
  * generador público compartido y actualiza el WORLD servido en `/` sin recargar
@@ -81,6 +132,7 @@ function localWorldUpdate(): Plugin {
         if (pathname !== "/__local-world/update") return next();
 
         const fail = (status: number, error: unknown) => {
+          if (status >= 400) console.error(`[local-world] ${status}:`, error);
           res.statusCode = status;
           res.setHeader("Content-Type", "application/json; charset=utf-8");
           res.setHeader("Cache-Control", "no-store");
@@ -117,12 +169,26 @@ function localWorldUpdate(): Plugin {
         }
 
         try {
-          const { output, serialized } = await buildPublicWorld(input, {
+          const { output, serialized } = await buildPublicWorld(withPublishedModelBundles(input), {
             sourceName: "studio:actualizar-world-local",
             sourceSha256: sha256(body),
           });
           await writePublicWorld(serialized);
-          publicWorld = { document: output.document, models: output.models };
+
+          // Devolución verificable: el cliente puede comparar lo publicado con el
+          // documento de trabajo sin abrir el archivo ni adivinar qué se escribió.
+          const placements: Record<string, unknown> = {};
+          const publishedDocument = isRecord(output.document) ? output.document : {};
+          const placedEntities = [
+            ...(Array.isArray(publishedDocument.buildings) ? publishedDocument.buildings : []),
+            ...(Array.isArray(publishedDocument.objects) ? publishedDocument.objects : []),
+          ];
+          for (const entity of placedEntities) {
+            if (isRecord(entity) && typeof entity.id === "string" && isRecord(entity.placement)) {
+              placements[entity.id] = entity.placement;
+            }
+          }
+          console.info(`[local-world] publicado: ${JSON.stringify(placements)}`);
           server.ws.send({ type: "full-reload", path: "/index.html" });
 
           res.statusCode = 200;
@@ -134,6 +200,7 @@ function localWorldUpdate(): Plugin {
               counts: output.counts,
               generatedAt: output.generatedAt,
               sha256: sha256(Buffer.from(serialized, "utf8")),
+              placements,
             }),
           );
         } catch (error) {
@@ -155,10 +222,13 @@ function injectDevPublicWorld(): Plugin {
     apply: "serve",
     transformIndexHtml(html: string, ctx: { path: string }) {
       if (ctx.path === "/studio.html" || ctx.path === "/usuario") return html;
+      // Leer el archivo en cada petición evita servir una copia en memoria obsoleta
+      // cuando el WORLD se regenera fuera del botón de STUDIO.
+      const current = loadPublicWorld(process.env.PUBLIC_WORLD_DATA);
       const json = (value: unknown) => JSON.stringify(value).replace(/</g, "\\u003c");
       const script =
-        `window.__PUBLIC_WORLD_DOCUMENT__ = ${json(publicWorld.document)};\n` +
-        `window.__PUBLIC_WORLD_MODELS__ = ${json(publicWorld.models)};`;
+        `window.__PUBLIC_WORLD_DOCUMENT__ = ${json(current.document)};\n` +
+        `window.__PUBLIC_WORLD_MODELS__ = ${json(current.models)};`;
       return { html, tags: [{ tag: "script", children: script, injectTo: "head-prepend" }] };
     },
   };
@@ -169,8 +239,8 @@ export default defineConfig({
   appType: "mpa",
   plugins: [react(), tailwindcss(), viteSingleFile(), officialRoutes(), localWorldUpdate(), injectDevPublicWorld()],
   define: {
-    __PUBLIC_WORLD_DOCUMENT__: JSON.stringify(publicWorld.document),
-    __PUBLIC_WORLD_MODELS__: JSON.stringify(publicWorld.models),
+    __PUBLIC_WORLD_DOCUMENT__: JSON.stringify(initialPublicWorld.document),
+    __PUBLIC_WORLD_MODELS__: JSON.stringify(initialPublicWorld.models),
   },
   resolve: {
     alias: {

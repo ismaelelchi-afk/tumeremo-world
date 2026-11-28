@@ -143,6 +143,7 @@ function StudioEditor() {
       onReady: () => {},
       onMapError: () => toast.show(t('world.mapError'), 6000),
       onTransform: (r, patch) => {
+        transformed.current = true;
         if (r.kind === 'place') {
           const id = r.id;
           const position = patch.position;
@@ -152,7 +153,15 @@ function StudioEditor() {
         const ref = r;
         update((d) => patchEntity(d, ref, { placement: patch }), `drag:${r.id}`);
       },
-      onGestureEnd: () => documentStore.breakCoalesce(),
+      onGestureEnd: () => {
+        documentStore.breakCoalesce();
+        // Persistir al soltar: el autoguardado normalmente llega 500 ms después y una recarga
+        // de Vite en ese intervalo recuperaría las posiciones anteriores del borrador.
+        if (transformed.current) {
+          transformed.current = false;
+          void documentStore.saveNow();
+        }
+      },
     },
     STUDIO_VIEW,
   );
@@ -404,16 +413,19 @@ function StudioEditor() {
   }, [showToast, t]);
 
   const updatingWorld = useRef(false);
+  const transformed = useRef(false);
 
   /**
-   * Publicación local: usa el documento en memoria tal cual, sin Guardar, sin tocar
-   * localStorage/IndexedDB y sin despliegue. El servidor de desarrollo valida y
-   * escribe data/world.public.json con el mismo generador del build público.
+   * Publicación local: usa el documento de trabajo actual. Antes de exportar se vuelca
+   * el borrador a localStorage para que las transformaciones recientes no se pierdan si
+   * Vite recarga la página mientras el autoguardado seguía pendiente. El servidor de
+   * desarrollo valida y escribe data/world.public.json con el generador público.
    */
   const updateWorld = useCallback(async () => {
     if (updatingWorld.current) return;
     updatingWorld.current = true;
     try {
+      await documentStore.saveNow();
       const body = await exportDocumentJson(documentStore.getState().doc);
       const response = await fetch('/__local-world/update', {
         method: 'POST',

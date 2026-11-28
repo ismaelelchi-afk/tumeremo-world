@@ -148,8 +148,21 @@ const LEGACY_MODEL_DEFS: ModelDef[] = [
   },
 ];
 
-/** Biblioteca inicial: modelos heredados + los tres comercios incorporados desde tumeremo-3d. */
-export const MODEL_LIBRARY: ModelDef[] = [...LEGACY_MODEL_DEFS, ...FEATURE_MODEL_DEFS];
+/** GLB local de la biblioteca compartida: no se coloca automáticamente en ningún documento. */
+const LOCAL_GLB_MODEL_DEFS: ModelDef[] = [
+  {
+    id: 'mdl_variedades_celestiales',
+    name: 'Variedades Celestiales',
+    category: 'building',
+    description: 'Modelo 3D importado de variedades_celestiales.glb.',
+    source: { type: 'glb', url: new URL('./variedades_celestiales.glb', import.meta.url).href },
+    defaults: p(13.43, 10.84, 13.3, '#cdd5d9', '#4b5963', '#5eead4'),
+    limits: { width: [2.69, 67.15], depth: [2.17, 54.2], height: [2.66, 66.5] },
+  },
+];
+
+/** Biblioteca inicial: heredados, comercios incorporados y GLB locales de la biblioteca. */
+export const MODEL_LIBRARY: ModelDef[] = [...LEGACY_MODEL_DEFS, ...FEATURE_MODEL_DEFS, ...LOCAL_GLB_MODEL_DEFS];
 
 const BY_ID = new Map(MODEL_LIBRARY.map((m) => [m.id, m]));
 

@@ -96,6 +96,11 @@ export interface CustomBuilding extends HasLocalizedTexts {
   params: ModelParams;
   description: string;
   /**
+   * Clasificación cívica opcional (p. ej. `square` = Plaza). No sustituye a los puntos de
+   * interés ni crea una entidad nueva: solo etiqueta la construcción en la ficha pública.
+   */
+  category?: PlaceCategory;
+  /**
    * Legacy: referência opcional a um Place. Se conserva el campo por compatibilidad con
    * documentos antiguos, pero la separación definitiva puntos ↔ estructuras lo deja
    * siempre en `null`: ninguna estructura depende de un punto para existir.
